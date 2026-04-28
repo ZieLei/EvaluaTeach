@@ -163,9 +163,7 @@ namespace EvaluaTeach
 
         private void button1_Click(object sender, EventArgs e)
         {
-            Home home = new();
-            home.Show();
-            Hide();
+            Program.NavigateTo(new Home());
         }
     }
 }

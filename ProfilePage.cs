@@ -20,7 +20,7 @@ namespace EvaluaTeach
         }
 
         // Allow other forms to populate profile fields before showing
-        public void SetProfileInfo(string studentName, string studentMeta, string email = null, string studentId = null)
+        public void SetProfileInfo(string studentName, string studentMeta, string? email = null, string? studentId = null)
         {
             if (!string.IsNullOrWhiteSpace(studentName))
             {

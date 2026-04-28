@@ -38,7 +38,6 @@
             labelHeadline = new Label();
             labelSubheadline = new Label();
             buttonGetStarted = new Button();
-            buttonViewDemo = new Button();
             panelStats = new Panel();
             labelStats1 = new Label();
             labelStats2 = new Label();
@@ -126,7 +125,6 @@
             heroPanel.Controls.Add(labelHeadline);
             heroPanel.Controls.Add(labelSubheadline);
             heroPanel.Controls.Add(buttonGetStarted);
-            heroPanel.Controls.Add(buttonViewDemo);
             heroPanel.Controls.Add(panelStats);
             heroPanel.Controls.Add(cardPanel1);
             heroPanel.Controls.Add(cardPanel2);
@@ -173,15 +171,6 @@
             buttonGetStarted.TabIndex = 3;
             buttonGetStarted.Text = "Get Started";
             buttonGetStarted.UseVisualStyleBackColor = true;
-            // 
-            // buttonViewDemo
-            // 
-            buttonViewDemo.Location = new Point(194, 214);
-            buttonViewDemo.Name = "buttonViewDemo";
-            buttonViewDemo.Size = new Size(156, 46);
-            buttonViewDemo.TabIndex = 4;
-            buttonViewDemo.Text = "See Features";
-            buttonViewDemo.UseVisualStyleBackColor = true;
             // 
             // panelStats
             // 
@@ -337,7 +326,6 @@
         private Label labelHeadline;
         private Label labelSubheadline;
         private Button buttonGetStarted;
-        private Button buttonViewDemo;
         private Panel panelStats;
         private Label labelStats1;
         private Label labelStats2;

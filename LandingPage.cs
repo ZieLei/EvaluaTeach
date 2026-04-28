@@ -35,14 +35,14 @@ namespace EvaluaTeach
             buttonLogin.BackColor = Color.White;
             buttonLogin.ForeColor = Color.FromArgb(15, 23, 42);
             buttonLogin.Font = new Font("Inter SemiBold", 9.5F, FontStyle.Bold);
-            buttonLogin.Click += (_, _) => OpenForm(new Login());
+            buttonLogin.Click += (_, _) => Program.NavigateTo(new Login());
 
             buttonSignup.FlatStyle = FlatStyle.Flat;
             buttonSignup.FlatAppearance.BorderSize = 0;
             buttonSignup.BackColor = Color.FromArgb(22, 163, 74);
             buttonSignup.ForeColor = Color.White;
             buttonSignup.Font = new Font("Inter SemiBold", 9.5F, FontStyle.Bold);
-            buttonSignup.Click += (_, _) => OpenForm(new Signup());
+            buttonSignup.Click += (_, _) => Program.NavigateTo(new Signup());
 
             labelBadge.BackColor = Color.FromArgb(30, 41, 59);
             labelBadge.ForeColor = Color.FromArgb(134, 239, 172);
@@ -58,9 +58,7 @@ namespace EvaluaTeach
             labelSubheadline.MaximumSize = new Size(620, 0);
 
             StylePrimaryButton(buttonGetStarted, Color.FromArgb(22, 163, 74), Color.White);
-            StylePrimaryButton(buttonViewDemo, Color.FromArgb(30, 41, 59), Color.White);
-            buttonGetStarted.Click += (_, _) => OpenForm(new Signup());
-            buttonViewDemo.Click += (_, _) => OpenForm(new Login());
+            buttonGetStarted.Click += (_, _) => Program.NavigateTo(new Signup());
 
             StyleStatsPanel();
             StyleFeatureCard(cardPanel1, labelCard1Title, labelCard1Body);
@@ -126,7 +124,6 @@ namespace EvaluaTeach
             labelSubheadline.Location = new Point(contentLeft, labelHeadline.Bottom + 20);
 
             buttonGetStarted.Location = new Point(contentLeft, labelSubheadline.Bottom + 28);
-            buttonViewDemo.Location = new Point(buttonGetStarted.Right + 14, buttonGetStarted.Top);
 
             panelStats.Location = new Point(contentLeft, buttonGetStarted.Bottom + 30);
             panelStats.Width = Math.Min(620, contentWidth);
@@ -147,13 +144,6 @@ namespace EvaluaTeach
             labelCard1Body.MaximumSize = new Size(cardPanel1.Width - 40, 0);
             labelCard2Body.MaximumSize = new Size(cardPanel2.Width - 40, 0);
             labelCard3Body.MaximumSize = new Size(cardPanel3.Width - 40, 0);
-        }
-
-        private void OpenForm(Form destination)
-        {
-            Hide();
-            destination.FormClosed += (_, _) => Show();
-            destination.Show();
         }
 
         private void LandingPage_Resize(object? sender, EventArgs e)
