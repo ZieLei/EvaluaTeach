@@ -10,6 +10,9 @@ namespace EvaluaTeach
 {
     public partial class ProfilePage : Form
     {
+        private const int CardPaddingSize = 32;
+        private const int CardMarginSize = 12;
+
         public ProfilePage()
         {
             InitializeComponent();
@@ -34,6 +37,14 @@ namespace EvaluaTeach
             labelAvatar.BackColor = Color.FromArgb(22, 163, 74);
             labelAvatar.ForeColor = Color.White;
             labelAvatar.Font = new Font("Inter", 20F, FontStyle.Bold);
+
+            buttonEditPhoto.FlatStyle = FlatStyle.Flat;
+            buttonEditPhoto.FlatAppearance.BorderSize = 0;
+            buttonEditPhoto.BackColor = Color.FromArgb(220, 252, 231);
+            buttonEditPhoto.ForeColor = Color.FromArgb(21, 128, 61);
+            buttonEditPhoto.Font = new Font("Inter SemiBold", 8.5F, FontStyle.Bold);
+            buttonEditPhoto.Text = "Edit photo";
+            buttonEditPhoto.Click += ButtonEditPhoto_Click;
 
             labelStudentName.Font = new Font("Inter", 18F, FontStyle.Bold);
             labelStudentName.ForeColor = Color.FromArgb(15, 23, 42);
@@ -61,14 +72,37 @@ namespace EvaluaTeach
             labelNote.ForeColor = Color.FromArgb(100, 116, 139);
             labelNote.Font = new Font("Inter", 9F, FontStyle.Regular);
 
+            tableLayoutPanel1.RowStyles[1].Height = 196F;
+            tableLayoutPanel1.RowStyles[2].Height = 224F;
+            tableLayoutPanel1.RowStyles[3].Height = 192F;
+
             UpdateProfileLayout();
             Resize += ProfilePage_Resize;
+        }
+
+        private void ButtonEditPhoto_Click(object? sender, EventArgs e)
+        {
+            using OpenFileDialog dialog = new()
+            {
+                Title = "Choose Profile Photo",
+                Filter = "Image Files|*.jpg;*.jpeg;*.png;*.bmp;*.gif",
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            using Image selectedImage = Image.FromFile(dialog.FileName);
+            labelAvatar.Image = new Bitmap(selectedImage, new Size(84, 84));
+            labelAvatar.Text = string.Empty;
         }
 
         private void StyleCard(Panel panel)
         {
             panel.BackColor = Color.White;
-            panel.Padding = new Padding(24);
+            panel.Padding = new Padding(CardPaddingSize);
         }
 
         private void StyleSectionTitle(Label label)
@@ -97,35 +131,44 @@ namespace EvaluaTeach
             panelAcademic.Width = cardWidth;
             panelAccount.Width = cardWidth;
 
-            panelHeader.Height = 160;
-            panelAcademic.Height = 190;
-            panelAccount.Height = 160;
+            panelHeader.Height = 172;
+            panelAcademic.Height = 200;
+            panelAccount.Height = 168;
 
             labelAvatar.Size = new Size(84, 84);
-            labelAvatar.Location = new Point(28, 28);
+            labelAvatar.Location = new Point(CardPaddingSize, CardPaddingSize);
+            labelAvatar.ImageAlign = ContentAlignment.MiddleCenter;
 
-            labelStudentName.Location = new Point(132, 36);
-            labelStudentMeta.Location = new Point(132, 80);
+            buttonEditPhoto.Size = new Size(96, 28);
+            buttonEditPhoto.Location = new Point(CardPaddingSize - 6, labelAvatar.Bottom + 12);
 
-            int rightColumnLeft = cardWidth / 2 + 10;
+            int headerTextLeft = labelAvatar.Right + 24;
+            labelStudentName.Location = new Point(headerTextLeft, CardPaddingSize + 6);
+            labelStudentMeta.Location = new Point(headerTextLeft, labelStudentName.Bottom + 12);
 
-            labelAcademicTitle.Location = new Point(28, 20);
-            labelStudentIdTitle.Location = new Point(28, 60);
-            labelStudentIdValue.Location = new Point(28, 84);
-            labelProgramTitle.Location = new Point(rightColumnLeft, 60);
-            labelProgramValue.Location = new Point(rightColumnLeft, 84);
-            labelYearLevelTitle.Location = new Point(28, 126);
-            labelYearLevelValue.Location = new Point(28, 150);
-            labelSectionTitle.Location = new Point(rightColumnLeft, 126);
-            labelSectionValue.Location = new Point(rightColumnLeft, 150);
+            int rightColumnLeft = cardWidth / 2 + 16;
 
-            labelAccountTitle.Location = new Point(28, 20);
-            labelEmailTitle.Location = new Point(28, 58);
-            labelEmailValue.Location = new Point(28, 82);
-            labelStatusTitle.Location = new Point(rightColumnLeft, 58);
-            labelStatusValue.Location = new Point(rightColumnLeft, 82);
-            labelNote.Location = new Point(28, 116);
-            labelNote.MaximumSize = new Size(cardWidth - 56, 0);
+            labelAcademicTitle.Location = new Point(CardPaddingSize, CardPaddingSize - 8);
+            labelStudentIdTitle.Location = new Point(CardPaddingSize, 68);
+            labelStudentIdValue.Location = new Point(CardPaddingSize, 94);
+            labelProgramTitle.Location = new Point(rightColumnLeft, 68);
+            labelProgramValue.Location = new Point(rightColumnLeft, 94);
+            labelYearLevelTitle.Location = new Point(CardPaddingSize, 134);
+            labelYearLevelValue.Location = new Point(CardPaddingSize, 160);
+            labelSectionTitle.Location = new Point(rightColumnLeft, 134);
+            labelSectionValue.Location = new Point(rightColumnLeft, 160);
+
+            labelAccountTitle.Location = new Point(CardPaddingSize, CardPaddingSize - 8);
+            labelEmailTitle.Location = new Point(CardPaddingSize, 66);
+            labelEmailValue.Location = new Point(CardPaddingSize, 92);
+            labelStatusTitle.Location = new Point(rightColumnLeft, 66);
+            labelStatusValue.Location = new Point(rightColumnLeft, 92);
+            labelNote.Location = new Point(CardPaddingSize, 126);
+            labelNote.MaximumSize = new Size(cardWidth - (CardPaddingSize * 2), 0);
+
+            panelHeader.Margin = new Padding(50, CardMarginSize, 50, CardMarginSize);
+            panelAcademic.Margin = new Padding(50, CardMarginSize, 50, CardMarginSize);
+            panelAccount.Margin = new Padding(50, CardMarginSize, 50, CardMarginSize);
         }
 
         private void ProfilePage_Resize(object? sender, EventArgs e)

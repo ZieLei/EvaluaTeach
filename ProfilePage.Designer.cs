@@ -32,6 +32,7 @@
             labelTitle = new Label();
             panelHeader = new Panel();
             labelAvatar = new Label();
+            buttonEditPhoto = new Button();
             labelStudentName = new Label();
             labelStudentMeta = new Label();
             panelAcademic = new Panel();
@@ -94,6 +95,7 @@
             // 
             panelHeader.Anchor = AnchorStyles.Top;
             panelHeader.Controls.Add(labelAvatar);
+            panelHeader.Controls.Add(buttonEditPhoto);
             panelHeader.Controls.Add(labelStudentName);
             panelHeader.Controls.Add(labelStudentMeta);
             panelHeader.Location = new Point(250, 112);
@@ -110,6 +112,15 @@
             labelAvatar.TabIndex = 0;
             labelAvatar.Text = "MJ";
             labelAvatar.TextAlign = ContentAlignment.MiddleCenter;
+            // 
+            // buttonEditPhoto
+            // 
+            buttonEditPhoto.Location = new Point(28, 118);
+            buttonEditPhoto.Name = "buttonEditPhoto";
+            buttonEditPhoto.Size = new Size(84, 28);
+            buttonEditPhoto.TabIndex = 3;
+            buttonEditPhoto.Text = "Edit photo";
+            buttonEditPhoto.UseVisualStyleBackColor = true;
             // 
             // labelStudentName
             // 
@@ -322,6 +333,7 @@
         private Label labelTitle;
         private Panel panelHeader;
         private Label labelAvatar;
+        private Button buttonEditPhoto;
         private Label labelStudentName;
         private Label labelStudentMeta;
         private Panel panelAcademic;
