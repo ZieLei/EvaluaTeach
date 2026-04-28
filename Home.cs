@@ -252,6 +252,7 @@ namespace EvaluaTeach
 
             notificationsContainer.BackColor = Color.Transparent;
             notificationsContainer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            notificationsContainer.AutoScroll = true;
 
             ConfigureNotificationCard(
                 notificationCard1,
@@ -420,7 +421,11 @@ namespace EvaluaTeach
 
             listContainer.Location = new Point(contentLeft, sectionSubtitle.Bottom + 16);
             listContainer.Size = new Size(contentWidth, Math.Max(260, ClientSize.Height - listContainer.Top - 28));
-            notificationsContainer.Location = new Point(contentLeft, notificationsSubtitle.Bottom + 8);
+            int notificationsTop = notificationsSubtitle.Visible
+                ? notificationsSubtitle.Bottom + 8
+                : label2.Bottom + 10;
+
+            notificationsContainer.Location = new Point(contentLeft, notificationsTop);
             notificationsContainer.Size = new Size(contentWidth, Math.Max(260, ClientSize.Height - notificationsContainer.Top - 28));
 
             label4.Location = new Point(20, 20);
@@ -492,16 +497,18 @@ namespace EvaluaTeach
             summaryPanel.Visible = true;
             listContainer.Visible = true;
             notificationsContainer.Visible = false;
+            UpdateResponsiveLayout();
         }
 
         private void ShowNotificationsView()
         {
             label2.Text = "Notifications";
             sectionSubtitle.Visible = false;
-            notificationsSubtitle.Visible = true;
+            notificationsSubtitle.Visible = false;
             summaryPanel.Visible = false;
             listContainer.Visible = false;
             notificationsContainer.Visible = true;
+            UpdateResponsiveLayout();
         }
 
         private void flowLayoutPanel1_Paint(object sender, PaintEventArgs e)
