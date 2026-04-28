@@ -41,6 +41,8 @@ namespace EvaluaTeach
             {
                 labelStudentIdValue.Text = studentId;
             }
+            // Update shared store so subscribers (Home) get the latest values
+            ProfileStore.UpdateProfile(studentName, studentMeta, email, studentId);
         }
 
         private void ConfigureProfileUi()
@@ -119,8 +121,12 @@ namespace EvaluaTeach
             }
 
             using Image selectedImage = Image.FromFile(dialog.FileName);
-            labelAvatar.Image = new Bitmap(selectedImage, new Size(84, 84));
+            var bmp = new Bitmap(selectedImage, new Size(84, 84));
+            labelAvatar.Image = bmp;
             labelAvatar.Text = string.Empty;
+
+            // Save avatar to shared store so Home can show it
+            ProfileStore.SetAvatar(bmp);
         }
 
         private void StyleCard(Panel panel)

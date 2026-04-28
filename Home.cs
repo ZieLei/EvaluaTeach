@@ -25,6 +25,10 @@ namespace EvaluaTeach
             ConfigureHomeUi();
             Resize += Home_Resize;
             Shown += Home_Shown;
+            // subscribe to profile updates to keep header and avatar in sync
+            ProfileStore.ProfileUpdated += OnProfileUpdated;
+            // initialize header from store
+            OnProfileUpdated();
         }
 
         private void button7_Click(object sender, EventArgs e)
@@ -33,28 +37,42 @@ namespace EvaluaTeach
             ProfilePage profile = new();
 
             // If the Home view has displayed user details in the header labels, pass them to the profile
-            try
+            var name = label9?.Text ?? string.Empty;
+            var meta = label10?.Text ?? string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(name) || !string.IsNullOrWhiteSpace(meta))
             {
-                // label9 contains the user name, label10 contains the meta (program/section)
-                var name = label9?.Text ?? string.Empty;
-                var meta = label10?.Text ?? string.Empty;
-
-                if (!string.IsNullOrWhiteSpace(name))
-                {
-                    profile.GetType().GetProperty("labelStudentName")?.SetValue(profile, name);
-                }
-
-                if (!string.IsNullOrWhiteSpace(meta))
-                {
-                    profile.GetType().GetProperty("labelStudentMeta")?.SetValue(profile, meta);
-                }
+                profile.SetProfileInfo(name, meta);
             }
-            catch
-            {
-                // ignore any reflection issues; fall back to default profile values
-            }
-
             profile.Show();
+        }
+
+        private void OnProfileUpdated()
+        {
+            // Update header labels and avatar from the shared ProfileStore
+            if (InvokeRequired)
+            {
+                Invoke(new Action(OnProfileUpdated));
+                return;
+            }
+
+            label9.Text = ProfileStore.Name;
+            label10.Text = ProfileStore.Meta;
+
+            if (ProfileStore.Avatar != null)
+            {
+                // show a scaled copy in the header avatar button
+                try
+                {
+                    var avatarCopy = new Bitmap(ProfileStore.Avatar, button7.Size);
+                    button7.BackgroundImage = avatarCopy;
+                    button7.BackgroundImageLayout = ImageLayout.Zoom;
+                }
+                catch
+                {
+                    // ignore image errors
+                }
+            }
         }
 
         private void ConfigureHomeUi()
