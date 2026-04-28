@@ -19,6 +19,30 @@ namespace EvaluaTeach
             ConfigureProfileUi();
         }
 
+        // Allow other forms to populate profile fields before showing
+        public void SetProfileInfo(string studentName, string studentMeta, string email = null, string studentId = null)
+        {
+            if (!string.IsNullOrWhiteSpace(studentName))
+            {
+                labelStudentName.Text = studentName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(studentMeta))
+            {
+                labelStudentMeta.Text = studentMeta;
+            }
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                labelEmailValue.Text = email;
+            }
+
+            if (!string.IsNullOrWhiteSpace(studentId))
+            {
+                labelStudentIdValue.Text = studentId;
+            }
+        }
+
         private void ConfigureProfileUi()
         {
             MinimumSize = new Size(980, 720);

@@ -309,6 +309,7 @@
             button7.Size = new Size(46, 44);
             button7.TabIndex = 0;
             button7.UseVisualStyleBackColor = true;
+            button7.Click += button7_Click;
             // 
             // button6
             // 

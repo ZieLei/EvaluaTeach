@@ -31,6 +31,7 @@
             mainLayout = new TableLayoutPanel();
             topBarPanel = new Panel();
             labelBrand = new Label();
+            buttonSignup = new Button();
             buttonLogin = new Button();
             heroPanel = new Panel();
             labelBadge = new Label();
@@ -81,6 +82,7 @@
             // topBarPanel
             // 
             topBarPanel.Controls.Add(labelBrand);
+            topBarPanel.Controls.Add(buttonSignup);
             topBarPanel.Controls.Add(buttonLogin);
             topBarPanel.Dock = DockStyle.Fill;
             topBarPanel.Location = new Point(97, 12);
@@ -107,6 +109,16 @@
             buttonLogin.TabIndex = 1;
             buttonLogin.Text = "Student Login";
             buttonLogin.UseVisualStyleBackColor = true;
+            // 
+            // buttonSignup
+            // 
+            buttonSignup.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            buttonSignup.Location = new Point(713, 8);
+            buttonSignup.Name = "buttonSignup";
+            buttonSignup.Size = new Size(129, 40);
+            buttonSignup.TabIndex = 2;
+            buttonSignup.Text = "Sign Up";
+            buttonSignup.UseVisualStyleBackColor = true;
             // 
             // heroPanel
             // 
@@ -318,6 +330,7 @@
         private TableLayoutPanel mainLayout;
         private Panel topBarPanel;
         private Label labelBrand;
+        private Button buttonSignup;
         private Button buttonLogin;
         private Panel heroPanel;
         private Label labelBadge;
