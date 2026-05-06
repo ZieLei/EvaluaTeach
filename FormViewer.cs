@@ -36,7 +36,7 @@ namespace EvaluaTeach
             {
                 BackColor = Color.White,
                 Dock = DockStyle.Top,
-                Height = 100,
+                Height = 120,
                 Padding = new Padding(32, 24, 32, 16)
             };
 
@@ -68,7 +68,7 @@ namespace EvaluaTeach
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
                 Size = new Size(90, 36),
-                Location = new Point(Width - 122, 24),
+                Location = new Point(header.Width - 122, 24),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             closeBtn.Click += (_, _) =>
@@ -83,10 +83,19 @@ namespace EvaluaTeach
             header.Controls.Add(descLabel);
             header.Controls.Add(closeBtn);
 
-            header.Resize += (_, _) =>
+            Action updateHeaderLayout = () =>
             {
                 descLabel.MaximumSize = new Size(header.Width - 200, 0);
+                descLabel.Location = new Point(32, titleLabel.Bottom + 8);
+                closeBtn.Location = new Point(header.Width - closeBtn.Width - 32, 24);
+
+                // Keep the full description visible so body content starts below it.
+                int requiredHeight = descLabel.Bottom + 16;
+                header.Height = Math.Max(100, requiredHeight);
             };
+
+            header.Resize += (_, _) => updateHeaderLayout();
+            updateHeaderLayout();
 
             var scrollContainer = new Panel
             {
@@ -104,6 +113,15 @@ namespace EvaluaTeach
             questionsPanel.Padding = new Padding(0, 0, 0, 24);
 
             scrollContainer.Controls.Add(questionsPanel);
+
+            var contentPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(245, 247, 251)
+            };
+
+            contentPanel.Controls.Add(scrollContainer);
+            contentPanel.Controls.Add(header);
 
             var footer = new Panel
             {
@@ -139,8 +157,7 @@ namespace EvaluaTeach
             footer.Controls.Add(submitBtn);
             footer.Controls.Add(progressLabel);
 
-            Controls.Add(header);
-            Controls.Add(scrollContainer);
+            Controls.Add(contentPanel);
             Controls.Add(footer);
 
             questionsPanel.ControlAdded += (_, _) => UpdateProgress(progressLabel);
