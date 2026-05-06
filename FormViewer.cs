@@ -500,8 +500,8 @@ namespace EvaluaTeach
             var response = new FormResponse
             {
                 FormId = form.Id,
-                StudentId = SessionStore.UserId ?? ProfileStore.StudentId,
-                StudentName = SessionStore.UserName ?? ProfileStore.Name,
+                StudentId = string.IsNullOrWhiteSpace(SessionStore.UserId) ? ProfileStore.StudentId : SessionStore.UserId,
+                StudentName = string.IsNullOrWhiteSpace(SessionStore.UserName) ? ProfileStore.Name : SessionStore.UserName,
                 Answers = answers,
                 SubmittedAt = DateTime.Now
             };

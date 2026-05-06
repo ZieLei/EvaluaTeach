@@ -20,6 +20,12 @@ namespace EvaluaTeach
             ConfigureStudentFormsView();
             LoadAvailableForms();
             FormDataStore.FormsUpdated += OnFormsUpdated;
+            FormDataStore.ResponsesUpdated += OnFormsUpdated;
+            FormClosed += (_, _) =>
+            {
+                FormDataStore.FormsUpdated -= OnFormsUpdated;
+                FormDataStore.ResponsesUpdated -= OnFormsUpdated;
+            };
         }
 
         private void ConfigureStudentFormsView()

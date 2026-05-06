@@ -166,6 +166,13 @@ namespace EvaluaTeach
             button4.Click += (_, _) => OpenStudentForms();
 
             FormDataStore.FormsUpdated += OnFormsUpdated;
+            FormDataStore.ResponsesUpdated += OnFormsUpdated;
+            FormClosed += (_, _) =>
+            {
+                FormDataStore.FormsUpdated -= OnFormsUpdated;
+                FormDataStore.ResponsesUpdated -= OnFormsUpdated;
+                ProfileStore.ProfileUpdated -= OnProfileUpdated;
+            };
 
             ShowDashboardView();
             UpdateResponsiveLayout();
@@ -192,7 +199,9 @@ namespace EvaluaTeach
         {
             var department = ProfileStore.Meta.Replace("Student ", "").Trim();
             var forms = FormDataStore.GetFormsForStudent(department);
-            var studentId = SessionStore.UserId ?? ProfileStore.StudentId;
+            var studentId = string.IsNullOrWhiteSpace(SessionStore.UserId)
+                ? ProfileStore.StudentId
+                : SessionStore.UserId;
 
             int total = forms.Count;
             int pending = forms.Count(f => !FormDataStore.HasStudentSubmitted(f.Id, studentId));
@@ -421,7 +430,16 @@ namespace EvaluaTeach
 
         private void Home_Shown(object? sender, EventArgs e)
         {
-            UpdateResponsiveLayout();
+            // Run one more layout pass after the first paint; this avoids
+            // stale sizes that can hide the teacher list until a later UI action.
+            BeginInvoke(new Action(() =>
+            {
+                ShowDashboardView();
+                UpdateMetrics();
+                flowLayoutPanel3.PerformLayout();
+                listContainer.PerformLayout();
+                UpdateResponsiveLayout();
+            }));
         }
 
         private void Home_Resize(object? sender, EventArgs e)
@@ -449,6 +467,11 @@ namespace EvaluaTeach
             metricLabel1.Size = new Size(120, 34);
             metricLabel2.Size = new Size(120, 34);
             metricLabel3.Size = new Size(120, 34);
+
+            // Keep bottom padding consistent even when summary text wraps.
+            int summaryBottomPadding = 24;
+            int summaryHeight = metricLabel1.Bottom + summaryBottomPadding;
+            summaryPanel.Height = Math.Max(170, summaryHeight);
 
             int viewHeaderTop = notificationsVisible
                 ? flowLayoutPanel1.Bottom - 4
@@ -530,12 +553,28 @@ namespace EvaluaTeach
 
         private void ShowDashboardView()
         {
+            if (flowLayoutPanel3.Parent != listContainer)
+            {
+                listContainer.Controls.Add(flowLayoutPanel3);
+            }
+            if (panel2.Parent != flowLayoutPanel3)
+            {
+                flowLayoutPanel3.Controls.Add(panel2);
+            }
+
             label2.Text = "Teacher Evaluation Dashboard";
             sectionSubtitle.Visible = true;
             notificationsSubtitle.Visible = false;
             summaryPanel.Visible = true;
             listContainer.Visible = true;
+            flowLayoutPanel3.Visible = true;
+            panel2.Visible = true;
             notificationsContainer.Visible = false;
+
+            summaryPanel.BringToFront();
+            sectionSubtitle.BringToFront();
+            listContainer.BringToFront();
+            flowLayoutPanel3.BringToFront();
             UpdateResponsiveLayout();
         }
 
@@ -547,6 +586,7 @@ namespace EvaluaTeach
             summaryPanel.Visible = false;
             listContainer.Visible = false;
             notificationsContainer.Visible = true;
+            notificationsContainer.BringToFront();
             UpdateResponsiveLayout();
         }
 
