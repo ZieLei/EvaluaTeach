@@ -13,6 +13,7 @@ namespace EvaluaTeach
         private readonly EvaluationForm form;
         private readonly Dictionary<Guid, Control> answerControls = new();
         private readonly FlowLayoutPanel questionsPanel = new();
+        private Label progressLabel = null!;
 
         public event Action? FormSubmitted;
 
@@ -99,6 +100,7 @@ namespace EvaluaTeach
 
             var scrollContainer = new Panel
             {
+                Name = "scrollContainer",
                 BackColor = Color.FromArgb(245, 247, 251),
                 Dock = DockStyle.Fill,
                 AutoScroll = true,
@@ -145,7 +147,7 @@ namespace EvaluaTeach
             };
             submitBtn.Click += SubmitForm;
 
-            var progressLabel = new Label
+            progressLabel = new Label
             {
                 Text = $"0 of {form.Questions.Count} answered",
                 Font = new Font("Inter", 11F),
@@ -190,6 +192,15 @@ namespace EvaluaTeach
             }
 
             questionsPanel.PerformLayout();
+
+            // Scroll to top when form loads
+            Shown += (_, _) =>
+            {
+                if (Controls.Find("scrollContainer", true).FirstOrDefault() is Panel scrollPanel)
+                {
+                    scrollPanel.AutoScrollPosition = new Point(0, 0);
+                }
+            };
         }
 
         private Panel CreateQuestionPanel(FormQuestion question)
@@ -305,8 +316,8 @@ namespace EvaluaTeach
                 Text = "",
                 BackColor = Color.Transparent,
                 FlatStyle = FlatStyle.Flat,
-                Width = (max - min + 1) * 55 + 20,
-                Height = 60
+                Width = (max - min + 1) * 55 + 40,
+                Height = 75
             };
 
             var radioButtons = new List<RadioButton>();
@@ -321,6 +332,7 @@ namespace EvaluaTeach
                     Size = new Size(50, 30),
                     Tag = i
                 };
+                rb.CheckedChanged += (_, _) => UpdateProgress(progressLabel);
                 group.Controls.Add(rb);
                 radioButtons.Add(rb);
             }
@@ -331,7 +343,7 @@ namespace EvaluaTeach
                 Font = new Font("Inter", 9F),
                 ForeColor = Color.FromArgb(148, 163, 184),
                 AutoSize = true,
-                Location = new Point(20, 50)
+                Location = new Point(20, 55)
             };
 
             var highLabel = new Label
@@ -340,7 +352,7 @@ namespace EvaluaTeach
                 Font = new Font("Inter", 9F),
                 ForeColor = Color.FromArgb(148, 163, 184),
                 AutoSize = true,
-                Location = new Point(group.Width - 70, 50)
+                Location = new Point(group.Width - 80, 55)
             };
 
             group.Controls.Add(lowLabel);
@@ -354,7 +366,7 @@ namespace EvaluaTeach
 
         private TextBox CreateTextControl()
         {
-            return new TextBox
+            var textBox = new TextBox
             {
                 Multiline = true,
                 Font = new Font("Inter", 11F),
@@ -363,6 +375,8 @@ namespace EvaluaTeach
                 ScrollBars = ScrollBars.Vertical,
                 Height = 100
             };
+            textBox.TextChanged += (_, _) => UpdateProgress(progressLabel);
+            return textBox;
         }
 
         private FlowLayoutPanel CreateYesNoControl()
@@ -383,6 +397,7 @@ namespace EvaluaTeach
                 AutoSize = true,
                 Margin = new Padding(0, 0, 32, 0)
             };
+            yesBtn.CheckedChanged += (_, _) => UpdateProgress(progressLabel);
 
             var noBtn = new RadioButton
             {
@@ -391,6 +406,7 @@ namespace EvaluaTeach
                 ForeColor = Color.FromArgb(51, 65, 85),
                 AutoSize = true
             };
+            noBtn.CheckedChanged += (_, _) => UpdateProgress(progressLabel);
 
             panel.Controls.Add(yesBtn);
             panel.Controls.Add(noBtn);
@@ -420,6 +436,7 @@ namespace EvaluaTeach
                     AutoSize = true,
                     Margin = new Padding(0, 4, 0, 4)
                 };
+                rb.CheckedChanged += (_, _) => UpdateProgress(progressLabel);
                 panel.Controls.Add(rb);
                 radioButtons.Add(rb);
             }

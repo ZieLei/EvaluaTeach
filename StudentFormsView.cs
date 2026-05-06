@@ -59,7 +59,8 @@ namespace EvaluaTeach
                 Font = new Font("Inter", 11F),
                 ForeColor = Color.FromArgb(100, 116, 139),
                 AutoSize = true,
-                Location = new Point(32, 50)
+                Location = new Point(32, 50),
+                MaximumSize = new Size(header.Width - 200, 0)
             };
 
             var backBtn = new Button
@@ -80,11 +81,30 @@ namespace EvaluaTeach
             header.Controls.Add(subtitleLabel);
             header.Controls.Add(backBtn);
 
+            Action updateHeaderLayout = () =>
+            {
+                subtitleLabel.MaximumSize = new Size(header.Width - 200, 0);
+                subtitleLabel.Location = new Point(32, titleLabel.Bottom + 8);
+                backBtn.Location = new Point(header.Width - backBtn.Width - 32, 22);
+
+                int requiredHeight = subtitleLabel.Bottom + 24;
+                header.Height = Math.Max(80, requiredHeight);
+            };
+
+            header.Resize += (_, _) => updateHeaderLayout();
+            updateHeaderLayout();
+
             contentPanel.BackColor = Color.FromArgb(245, 247, 251);
-            contentPanel.Location = new Point(0, 80);
-            contentPanel.Size = new Size(Width, Height - 80);
+            contentPanel.Location = new Point(0, header.Height);
+            contentPanel.Size = new Size(Width, Height - header.Height);
             contentPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             contentPanel.AutoScroll = true;
+
+            header.SizeChanged += (_, _) =>
+            {
+                contentPanel.Location = new Point(0, header.Height);
+                contentPanel.Size = new Size(Width, Height - header.Height);
+            };
 
             statusLabel.Font = new Font("Inter", 12F);
             statusLabel.ForeColor = Color.FromArgb(148, 163, 184);
