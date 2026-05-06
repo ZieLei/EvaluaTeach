@@ -39,7 +39,8 @@ namespace EvaluaTeach
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter", 10F),
                 Size = new Size(80, 32),
-                Location = new Point(24, 24)
+                Location = new Point(24, 24),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
             };
             topBackBtn.Click += (_, _) => Program.NavigateTo(new LandingPage());
             Controls.Add(topBackBtn);
@@ -47,6 +48,9 @@ namespace EvaluaTeach
 
             panel1.BackColor = Color.White;
             panel1.Padding = new Padding(24);
+            // Keep card centered by the table layout and push it a bit lower.
+            panel1.Anchor = AnchorStyles.None;
+            panel1.Margin = new Padding(0, 36, 0, 0);
 
             labelSubtitle.ForeColor = Color.FromArgb(100, 116, 139);
             labelSubtitle.Font = new Font("Inter", 9.5F, FontStyle.Regular);
@@ -156,8 +160,13 @@ namespace EvaluaTeach
 
         private void UpdateSignupLayout()
         {
-            panel1.Width = Math.Min(420, Math.Max(360, ClientSize.Width - 240));
-            panel1.Height = 560;
+            // Slightly larger and centered sign-up card for better visibility.
+            int maxWidth = 520;
+            int minWidth = 400;
+            int horizontalPadding = 260;
+            int targetWidth = Math.Min(maxWidth, Math.Max(minWidth, ClientSize.Width - horizontalPadding));
+            panel1.Width = targetWidth;
+            panel1.Height = 580;
 
             int left = 34;
             int fullWidth = panel1.Width - 68;

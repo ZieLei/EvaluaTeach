@@ -19,10 +19,14 @@ namespace EvaluaTeach
         private readonly Button logoutBtn = new();
         private readonly Button dashboardBtn = new();
         private readonly Button responsesBtn = new();
+        private readonly Label dashboardSubtitleLabel = new();
+        private readonly Button dashboardCreateBtn = new();
+        private readonly Label responsesSubtitleLabel = new();
 
         private readonly Label statsLabel1 = new();
         private readonly Label statsLabel2 = new();
         private readonly Label statsLabel3 = new();
+        private bool showingResponses;
 
         public AdminHome()
         {
@@ -30,7 +34,13 @@ namespace EvaluaTeach
             ConfigureAdminUi();
             LoadFormsList();
             UpdateStats();
-            FormDataStore.FormsUpdated += OnFormsUpdated;
+            FormDataStore.FormsUpdated += OnDataUpdated;
+            FormDataStore.ResponsesUpdated += OnDataUpdated;
+            FormClosed += (_, _) =>
+            {
+                FormDataStore.FormsUpdated -= OnDataUpdated;
+                FormDataStore.ResponsesUpdated -= OnDataUpdated;
+            };
         }
 
         private void ConfigureAdminUi()
@@ -145,14 +155,18 @@ namespace EvaluaTeach
             contentPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             contentPanel.AutoScroll = true;
 
-            var subtitleLabel = new Label
-            {
-                Text = "Manage your evaluation forms. Students will see active forms immediately.",
-                Font = new Font("Inter", 10F),
-                ForeColor = Color.FromArgb(100, 116, 139),
-                AutoSize = true,
-                Location = new Point(32, 20)
-            };
+            dashboardSubtitleLabel.Text = "Manage your evaluation forms. Students will see active forms immediately.";
+            dashboardSubtitleLabel.Font = new Font("Inter", 10F);
+            dashboardSubtitleLabel.ForeColor = Color.FromArgb(100, 116, 139);
+            dashboardSubtitleLabel.AutoSize = true;
+            dashboardSubtitleLabel.Location = new Point(32, 20);
+
+            responsesSubtitleLabel.Text = "View complete student responses and generate teacher-ready reports.";
+            responsesSubtitleLabel.Font = new Font("Inter", 10F);
+            responsesSubtitleLabel.ForeColor = Color.FromArgb(100, 116, 139);
+            responsesSubtitleLabel.AutoSize = true;
+            responsesSubtitleLabel.Location = new Point(32, 20);
+            responsesSubtitleLabel.Visible = false;
 
             formsListPanel.FlowDirection = FlowDirection.TopDown;
             formsListPanel.WrapContents = false;
@@ -162,28 +176,26 @@ namespace EvaluaTeach
             formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 140);
             formsListPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
-            var addNewFormBtn = new Button
-            {
-                Text = "+ Create New Form",
-                BackColor = Color.FromArgb(38, 166, 91),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                FlatAppearance = { BorderSize = 0 },
-                Font = new Font("Inter SemiBold", 11F, FontStyle.Bold),
-                Size = new Size(180, 50),
-                Location = new Point(32, 52)
-            };
-            addNewFormBtn.Click += (_, _) => OpenFormBuilder();
+            dashboardCreateBtn.Text = "+ Create New Form";
+            dashboardCreateBtn.BackColor = Color.FromArgb(38, 166, 91);
+            dashboardCreateBtn.ForeColor = Color.White;
+            dashboardCreateBtn.FlatStyle = FlatStyle.Flat;
+            dashboardCreateBtn.FlatAppearance.BorderSize = 0;
+            dashboardCreateBtn.Font = new Font("Inter SemiBold", 11F, FontStyle.Bold);
+            dashboardCreateBtn.Size = new Size(180, 50);
+            dashboardCreateBtn.Location = new Point(32, 52);
+            dashboardCreateBtn.Click += (_, _) => OpenFormBuilder();
 
-            contentPanel.Controls.Add(addNewFormBtn);
-            contentPanel.Controls.Add(subtitleLabel);
+            contentPanel.Controls.Add(dashboardCreateBtn);
+            contentPanel.Controls.Add(dashboardSubtitleLabel);
+            contentPanel.Controls.Add(responsesSubtitleLabel);
             contentPanel.Controls.Add(formsListPanel);
         }
 
         private void ConfigureStatsCards()
         {
             int cardWidth = 200;
-            int cardHeight = 90;
+            int cardHeight = 118;
             int startX = 32;
             int spacing = 24;
 
@@ -193,6 +205,7 @@ namespace EvaluaTeach
             statsLabel1.Padding = new Padding(16);
             statsLabel1.Font = new Font("Inter", 11F);
             statsLabel1.ForeColor = Color.FromArgb(71, 85, 105);
+            statsLabel1.TextAlign = ContentAlignment.TopLeft;
 
             statsLabel2.BackColor = Color.White;
             statsLabel2.Size = new Size(cardWidth, cardHeight);
@@ -200,6 +213,7 @@ namespace EvaluaTeach
             statsLabel2.Padding = new Padding(16);
             statsLabel2.Font = new Font("Inter", 11F);
             statsLabel2.ForeColor = Color.FromArgb(71, 85, 105);
+            statsLabel2.TextAlign = ContentAlignment.TopLeft;
 
             statsLabel3.BackColor = Color.White;
             statsLabel3.Size = new Size(cardWidth, cardHeight);
@@ -207,6 +221,7 @@ namespace EvaluaTeach
             statsLabel3.Padding = new Padding(16);
             statsLabel3.Font = new Font("Inter", 11F);
             statsLabel3.ForeColor = Color.FromArgb(71, 85, 105);
+            statsLabel3.TextAlign = ContentAlignment.TopLeft;
 
             contentPanel.Controls.Add(statsLabel1);
             contentPanel.Controls.Add(statsLabel2);
@@ -334,7 +349,7 @@ namespace EvaluaTeach
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
                 Size = new Size(90, 32),
-                Location = new Point(card.Width - 82, 90)
+                Location = new Point(card.Width - 102, 90)
             };
             toggleBtn.Click += (_, _) => ToggleFormStatus(form);
 
@@ -351,7 +366,7 @@ namespace EvaluaTeach
                 statusBadge.Location = new Point(card.Width - 100, 20);
                 responsesLabel.Location = new Point(card.Width - 120, 50);
                 editBtn.Location = new Point(card.Width - 160, 90);
-                toggleBtn.Location = new Point(card.Width - 82, 90);
+                toggleBtn.Location = new Point(card.Width - 102, 90);
                 description.MaximumSize = new Size(card.Width - 240, 0);
             };
 
@@ -361,16 +376,38 @@ namespace EvaluaTeach
         private void UpdateLayout()
         {
             logoutBtn.Location = new Point(24, ClientSize.Height - 80);
+
+            createFormBtn.Location = new Point(header.ClientSize.Width - createFormBtn.Width - 24, 14);
+            dashboardCreateBtn.Location = new Point(contentPanel.ClientSize.Width - dashboardCreateBtn.Width - 32, 52);
+
+            if (!showingResponses)
+            {
+                formsListPanel.Location = new Point(32, 198);
+                formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 214);
+            }
+            else
+            {
+                formsListPanel.Location = new Point(32, 56);
+                formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 72);
+            }
         }
 
-        private void OnFormsUpdated()
+        private void OnDataUpdated()
         {
             if (InvokeRequired)
             {
-                Invoke(new Action(OnFormsUpdated));
+                Invoke(new Action(OnDataUpdated));
                 return;
             }
-            LoadFormsList();
+
+            if (showingResponses)
+            {
+                LoadResponsesView();
+            }
+            else
+            {
+                LoadFormsList();
+            }
             UpdateStats();
         }
 
@@ -404,40 +441,60 @@ namespace EvaluaTeach
 
         private void ShowDashboard()
         {
+            showingResponses = false;
             dashboardBtn.BackColor = Color.FromArgb(38, 166, 91);
             dashboardBtn.ForeColor = Color.White;
             responsesBtn.BackColor = Color.Transparent;
             responsesBtn.ForeColor = Color.FromArgb(203, 213, 225);
             titleLabel.Text = "Evaluation Forms Management";
             createFormBtn.Visible = true;
+            dashboardCreateBtn.Visible = true;
+            dashboardSubtitleLabel.Visible = true;
+            responsesSubtitleLabel.Visible = false;
+            statsLabel1.Visible = true;
+            statsLabel2.Visible = true;
+            statsLabel3.Visible = true;
+            formsListPanel.Location = new Point(32, 198);
+            formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 214);
             LoadFormsList();
         }
 
         private void ShowResponses()
         {
+            showingResponses = true;
             dashboardBtn.BackColor = Color.Transparent;
             dashboardBtn.ForeColor = Color.FromArgb(203, 213, 225);
             responsesBtn.BackColor = Color.FromArgb(38, 166, 91);
             responsesBtn.ForeColor = Color.White;
             titleLabel.Text = "Student Responses";
             createFormBtn.Visible = false;
+            dashboardCreateBtn.Visible = false;
+            dashboardSubtitleLabel.Visible = false;
+            responsesSubtitleLabel.Visible = true;
+            statsLabel1.Visible = false;
+            statsLabel2.Visible = false;
+            statsLabel3.Visible = false;
+            formsListPanel.Location = new Point(32, 56);
+            formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 72);
             LoadResponsesView();
         }
 
         private void LoadResponsesView()
         {
             formsListPanel.Controls.Clear();
-            var forms = FormDataStore.GetAllForms();
+            var forms = FormDataStore.GetAllForms().OrderByDescending(f => f.CreatedAt).ToList();
 
             foreach (var form in forms)
             {
-                var responses = FormDataStore.GetResponsesForForm(form.Id);
+                var responses = FormDataStore.GetResponsesForForm(form.Id)
+                    .OrderByDescending(r => r.SubmittedAt)
+                    .ToList();
                 if (!responses.Any()) continue;
 
                 var section = new Panel
                 {
                     BackColor = Color.White,
-                    Size = new Size(formsListPanel.Width - 40, 200),
+                    Size = new Size(formsListPanel.Width - 40, 74 + (responses.Count * 170)),
                     Margin = new Padding(0, 0, 0, 16),
                     Padding = new Padding(20),
                     AutoScroll = true
@@ -445,7 +502,7 @@ namespace EvaluaTeach
 
                 var title = new Label
                 {
-                    Text = form.Title,
+                    Text = $"{form.Title} ({responses.Count} responses)",
                     Font = new Font("Inter", 14F, FontStyle.Bold),
                     ForeColor = Color.FromArgb(15, 23, 42),
                     AutoSize = true,
@@ -454,33 +511,27 @@ namespace EvaluaTeach
 
                 section.Controls.Add(title);
 
-                int y = 55;
-                foreach (var response in responses.Take(5))
+                int y = 56;
+                foreach (var response in responses)
                 {
-                    var responseLabel = new Label
-                    {
-                        Text = $"  {response.StudentName} - {response.SubmittedAt:g}",
-                        Font = new Font("Inter", 10F),
-                        ForeColor = Color.FromArgb(71, 85, 105),
-                        AutoSize = true,
-                        Location = new Point(20, y)
-                    };
-                    section.Controls.Add(responseLabel);
-                    y += 24;
+                    var responseCard = CreateResponseCard(form, response, section.Width - 40, y);
+                    section.Controls.Add(responseCard);
+                    y = responseCard.Bottom + 10;
                 }
 
-                if (responses.Count > 5)
+                section.Resize += (_, _) =>
                 {
-                    var moreLabel = new Label
+                    int top = 56;
+                    foreach (Control control in section.Controls)
                     {
-                        Text = $"  ... and {responses.Count - 5} more responses",
-                        Font = new Font("Inter", 9F, FontStyle.Italic),
-                        ForeColor = Color.FromArgb(148, 163, 184),
-                        AutoSize = true,
-                        Location = new Point(20, y)
-                    };
-                    section.Controls.Add(moreLabel);
-                }
+                        if (control is Panel card && card.Tag as string == "response-card")
+                        {
+                            card.Width = section.Width - 40;
+                            card.Location = new Point(20, top);
+                            top = card.Bottom + 10;
+                        }
+                    }
+                };
 
                 formsListPanel.Controls.Add(section);
             }
@@ -497,6 +548,90 @@ namespace EvaluaTeach
                 };
                 formsListPanel.Controls.Add(emptyLabel);
             }
+        }
+
+        private Panel CreateResponseCard(EvaluationForm form, FormResponse response, int width, int top)
+        {
+            var card = new Panel
+            {
+                BackColor = Color.FromArgb(248, 250, 252),
+                Location = new Point(20, top),
+                Size = new Size(width, 160),
+                Padding = new Padding(12),
+                Tag = "response-card"
+            };
+
+            var headerLabel = new Label
+            {
+                Text = $"{response.StudentName} ({response.StudentId}) - {response.SubmittedAt:g}",
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 41, 59),
+                AutoSize = true,
+                Location = new Point(12, 10)
+            };
+
+            var answersBox = new TextBox
+            {
+                Multiline = true,
+                ReadOnly = true,
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.White,
+                Font = new Font("Inter", 9F, FontStyle.Regular),
+                Location = new Point(12, 36),
+                Size = new Size(card.Width - 148, 112),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                ScrollBars = ScrollBars.Vertical,
+                Text = BuildResponseReport(form, response)
+            };
+
+            var sendReportBtn = new Button
+            {
+                Text = "Send Report",
+                BackColor = Color.FromArgb(37, 99, 235),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                Size = new Size(110, 34),
+                Location = new Point(card.Width - 122, 36),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+            sendReportBtn.Click += (_, _) => SendReportToTeacher(form, response, answersBox.Text);
+
+            card.Controls.Add(headerLabel);
+            card.Controls.Add(answersBox);
+            card.Controls.Add(sendReportBtn);
+            return card;
+        }
+
+        private static string BuildResponseReport(EvaluationForm form, FormResponse response)
+        {
+            var lines = new List<string>
+            {
+                $"Teacher: {(string.IsNullOrWhiteSpace(form.TargetTeacher) ? "Assigned Teacher" : form.TargetTeacher)}",
+                $"Department: {(string.IsNullOrWhiteSpace(form.TargetDepartment) ? "All" : form.TargetDepartment)}",
+                "------------------------------"
+            };
+
+            foreach (var question in form.Questions.OrderBy(q => q.OrderIndex))
+            {
+                response.Answers.TryGetValue(question.Id, out var answer);
+                lines.Add($"{question.OrderIndex + 1}. {question.Text}");
+                lines.Add($"   Answer: {(!string.IsNullOrWhiteSpace(answer) ? answer : "(no answer)")}");
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private void SendReportToTeacher(EvaluationForm form, FormResponse response, string reportBody)
+        {
+            var teacher = string.IsNullOrWhiteSpace(form.TargetTeacher) ? "Assigned Teacher" : form.TargetTeacher;
+            int reportLength = reportBody.Length;
+            MessageBox.Show(
+                $"Report prepared for {teacher}.\n\nStudent: {response.StudentName}\nForm: {form.Title}\nReport size: {reportLength} characters\n\nIn this build, reports are generated and ready to send.",
+                "Report Ready",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
 
         private void Logout()

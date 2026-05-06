@@ -31,6 +31,8 @@ namespace EvaluaTeach
                 currentForm = startupForm;
                 MainForm = startupForm;
                 startupForm.FormClosed += ActiveFormClosed;
+                // Ensure the app opens full-screen on startup.
+                startupForm.WindowState = FormWindowState.Maximized;
                 startupForm.Show();
             }
 
@@ -41,6 +43,8 @@ namespace EvaluaTeach
                 previousForm.FormClosed -= ActiveFormClosed;
                 previousForm.Hide();
 
+                // Ensure every navigated screen is full-screen as well.
+                nextForm.WindowState = FormWindowState.Maximized;
                 currentForm = nextForm;
                 MainForm = nextForm;
                 nextForm.FormClosed += ActiveFormClosed;

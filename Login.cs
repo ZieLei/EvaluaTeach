@@ -28,15 +28,29 @@ namespace EvaluaTeach
             Text = "EvaluaTeach Login";
 
             tableLayoutPanel1.BackColor = BackColor;
+            // Match the sign-up page structure so the card stays centered consistently.
+            tableLayoutPanel1.ColumnStyles.Clear();
+            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            tableLayoutPanel1.RowStyles.Clear();
+            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 110F));
+            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
 
             label3.Text = "EvaluaTeach";
             label3.ForeColor = Color.FromArgb(22, 163, 74);
 
             panel1.BackColor = Color.White;
             panel1.Padding = new Padding(28);
-            panel1.MaximumSize = new Size(360, 320);
-            panel1.MinimumSize = new Size(320, 320);
+            panel1.Dock = DockStyle.None;
+            panel1.Anchor = AnchorStyles.None;
+            panel1.Margin = new Padding(0, 36, 0, 0);
+            // Slightly larger card for better readability on wide screens.
+            panel1.MaximumSize = new Size(420, 360);
+            panel1.MinimumSize = new Size(360, 340);
 
+            // Global back button pinned to the top-left of the window, not inside the card.
             var backBtn = new Button
             {
                 Text = "Back",
@@ -45,12 +59,13 @@ namespace EvaluaTeach
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter", 9F),
-                Size = new Size(60, 28),
-                Location = new Point(28, 24)
+                Size = new Size(70, 30),
+                Location = new Point(24, 24),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
             };
             backBtn.Click += (_, _) => Program.NavigateTo(new LandingPage());
-
-            panel1.Controls.Add(backBtn);
+            Controls.Add(backBtn);
+            backBtn.BringToFront();
 
             label2.Text = "User ID";
             label2.Font = new Font("Inter SemiBold", 10F, FontStyle.Bold);
@@ -145,11 +160,11 @@ namespace EvaluaTeach
 
         private void UpdateLoginLayout()
         {
-            panel1.Size = new Size(Math.Min(360, ClientSize.Width - 120), 320);
-
-            var backBtn = panel1.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Back");
-            if (backBtn != null)
-                backBtn.Location = new Point(28, 24);
+            // Size card; table layout handles centering like the sign-up page.
+            int maxWidth = 420;
+            int horizontalPadding = 160;
+            int targetWidth = Math.Min(maxWidth, ClientSize.Width - horizontalPadding);
+            panel1.Size = new Size(targetWidth, 340);
 
             label2.Location = new Point(28, 60);
             textBox1.Location = new Point(28, label2.Bottom + 10);

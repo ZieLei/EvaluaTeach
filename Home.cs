@@ -33,6 +33,9 @@ namespace EvaluaTeach
         private readonly Label notificationTime1 = new();
         private readonly Label notificationTime2 = new();
         private readonly Label notificationTime3 = new();
+        private bool dashboardLayoutInitialized;
+        private bool showingNotifications;
+        private bool applyingViewState;
 
         public Home()
         {
@@ -164,6 +167,7 @@ namespace EvaluaTeach
             button1.Click += (_, _) => ShowDashboardView();
             button2.Click += (_, _) => ShowNotificationsView();
             button4.Click += (_, _) => OpenStudentForms();
+            panel1.Layout += (_, _) => ApplyCurrentViewState(false);
 
             FormDataStore.FormsUpdated += OnFormsUpdated;
             FormDataStore.ResponsesUpdated += OnFormsUpdated;
@@ -210,6 +214,12 @@ namespace EvaluaTeach
             metricLabel1.Text = $"{total} Forms";
             metricLabel2.Text = $"{pending} Pending";
             metricLabel3.Text = $"{completed} Completed";
+
+            // Metrics text changes can affect parent measurements in this manual layout.
+            summaryPanel.PerformLayout();
+            listContainer.PerformLayout();
+            summaryPanel.Refresh();
+            listContainer.Refresh();
         }
 
         private void ConfigureDashboardPanels()
@@ -430,16 +440,7 @@ namespace EvaluaTeach
 
         private void Home_Shown(object? sender, EventArgs e)
         {
-            // Run one more layout pass after the first paint; this avoids
-            // stale sizes that can hide the teacher list until a later UI action.
-            BeginInvoke(new Action(() =>
-            {
-                ShowDashboardView();
-                UpdateMetrics();
-                flowLayoutPanel3.PerformLayout();
-                listContainer.PerformLayout();
-                UpdateResponsiveLayout();
-            }));
+            BeginInvoke(new Action(EnsureDashboardInitialLayout));
         }
 
         private void Home_Resize(object? sender, EventArgs e)
@@ -447,11 +448,46 @@ namespace EvaluaTeach
             UpdateResponsiveLayout();
         }
 
+        private void EnsureDashboardInitialLayout()
+        {
+            if (dashboardLayoutInitialized)
+            {
+                return;
+            }
+
+            dashboardLayoutInitialized = true;
+
+            SuspendLayout();
+            panel1.SuspendLayout();
+            listContainer.SuspendLayout();
+            flowLayoutPanel3.SuspendLayout();
+
+            ShowDashboardView();
+            UpdateMetrics();
+            UpdateResponsiveLayout();
+
+            flowLayoutPanel3.ResumeLayout(true);
+            listContainer.ResumeLayout(true);
+            panel1.ResumeLayout(true);
+            ResumeLayout(true);
+
+            PerformLayout();
+            panel1.PerformLayout();
+            listContainer.PerformLayout();
+            flowLayoutPanel3.PerformLayout();
+            Refresh();
+        }
+
         private void UpdateResponsiveLayout()
         {
-            int contentLeft = flowLayoutPanel2.Right + 32;
-            int contentWidth = Math.Max(620, ClientSize.Width - contentLeft - 32);
-            int contentTop = flowLayoutPanel1.Bottom + 28;
+            // Ensure docked controls have computed bounds before reading dimensions.
+            panel1.PerformLayout();
+
+            int headerHeight = Math.Max(flowLayoutPanel1.Height, 84);
+            int sidebarWidth = Math.Max(flowLayoutPanel2.Width, 84);
+            int contentLeft = sidebarWidth + 32;
+            int contentTop = headerHeight + 28;
+            int contentWidth = Math.Max(620, panel1.ClientSize.Width - contentLeft - 32);
             bool notificationsVisible = notificationsContainer.Visible;
 
             summaryPanel.Location = new Point(contentLeft, contentTop);
@@ -482,13 +518,13 @@ namespace EvaluaTeach
             notificationsSubtitle.Location = new Point(contentLeft, label2.Bottom + 2);
 
             listContainer.Location = new Point(contentLeft, sectionSubtitle.Bottom + 16);
-            listContainer.Size = new Size(contentWidth, Math.Max(260, ClientSize.Height - listContainer.Top - 28));
+            listContainer.Size = new Size(contentWidth, Math.Max(260, panel1.ClientSize.Height - listContainer.Top - 28));
             int notificationsTop = notificationsSubtitle.Visible
                 ? notificationsSubtitle.Bottom + 8
                 : label2.Bottom + 10;
 
             notificationsContainer.Location = new Point(contentLeft, notificationsTop);
-            notificationsContainer.Size = new Size(contentWidth, Math.Max(260, ClientSize.Height - notificationsContainer.Top - 28));
+            notificationsContainer.Size = new Size(contentWidth, Math.Max(260, panel1.ClientSize.Height - notificationsContainer.Top - 28));
 
             label4.Location = new Point(20, 20);
             label5.Location = new Point(Math.Max(180, listContainer.Width / 3), 20);
@@ -533,7 +569,7 @@ namespace EvaluaTeach
             textBox1.Width = Math.Max(230, flowLayoutPanel1.ClientSize.Width - headerReservedWidth);
             panel3.Margin = new Padding(16, 0, 6, 0);
             button6.Margin = new Padding(0, 10, 0, 0);
-            flowLayoutPanel2.Height = Math.Max(0, ClientSize.Height - flowLayoutPanel1.Height);
+            flowLayoutPanel2.Height = Math.Max(0, panel1.ClientSize.Height - headerHeight);
 
             int sidebarAvailableHeight = flowLayoutPanel2.Height - flowLayoutPanel2.Padding.Top - flowLayoutPanel2.Padding.Bottom;
             int logoutTopMargin = Math.Max(40, sidebarAvailableHeight - button1.Height - button2.Height - button3.Height - 56);
@@ -553,6 +589,25 @@ namespace EvaluaTeach
 
         private void ShowDashboardView()
         {
+            showingNotifications = false;
+            ApplyCurrentViewState();
+        }
+
+        private void ShowNotificationsView()
+        {
+            showingNotifications = true;
+            ApplyCurrentViewState();
+        }
+
+        private void ApplyCurrentViewState(bool updateLayout = true)
+        {
+            if (applyingViewState)
+            {
+                return;
+            }
+
+            applyingViewState = true;
+
             if (flowLayoutPanel3.Parent != listContainer)
             {
                 listContainer.Controls.Add(flowLayoutPanel3);
@@ -562,32 +617,37 @@ namespace EvaluaTeach
                 flowLayoutPanel3.Controls.Add(panel2);
             }
 
-            label2.Text = "Teacher Evaluation Dashboard";
-            sectionSubtitle.Visible = true;
-            notificationsSubtitle.Visible = false;
-            summaryPanel.Visible = true;
-            listContainer.Visible = true;
-            flowLayoutPanel3.Visible = true;
-            panel2.Visible = true;
-            notificationsContainer.Visible = false;
+            bool showDashboard = !showingNotifications;
 
-            summaryPanel.BringToFront();
-            sectionSubtitle.BringToFront();
-            listContainer.BringToFront();
-            flowLayoutPanel3.BringToFront();
-            UpdateResponsiveLayout();
-        }
-
-        private void ShowNotificationsView()
-        {
-            label2.Text = "Notifications";
-            sectionSubtitle.Visible = false;
+            label2.Text = showDashboard ? "Teacher Evaluation Dashboard" : "Notifications";
+            sectionSubtitle.Visible = showDashboard;
             notificationsSubtitle.Visible = false;
-            summaryPanel.Visible = false;
-            listContainer.Visible = false;
-            notificationsContainer.Visible = true;
-            notificationsContainer.BringToFront();
-            UpdateResponsiveLayout();
+            summaryPanel.Visible = showDashboard;
+            listContainer.Visible = showDashboard;
+            flowLayoutPanel3.Visible = showDashboard;
+            panel2.Visible = showDashboard;
+            notificationsContainer.Visible = !showDashboard;
+
+            if (showDashboard)
+            {
+                summaryPanel.BringToFront();
+                sectionSubtitle.BringToFront();
+                listContainer.BringToFront();
+                flowLayoutPanel3.BringToFront();
+            }
+            else
+            {
+                notificationsContainer.BringToFront();
+            }
+
+            if (updateLayout)
+            {
+                UpdateResponsiveLayout();
+                panel1.PerformLayout();
+                listContainer.PerformLayout();
+            }
+
+            applyingViewState = false;
         }
 
         private void flowLayoutPanel1_Paint(object sender, PaintEventArgs e)

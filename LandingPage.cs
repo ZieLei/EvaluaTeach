@@ -26,6 +26,8 @@ namespace EvaluaTeach
             mainLayout.BackColor = BackColor;
             topBarPanel.BackColor = Color.Transparent;
             heroPanel.BackColor = Color.FromArgb(15, 23, 42);
+            // Allow the landing content to be scrollable on smaller window sizes.
+            heroPanel.AutoScroll = true;
 
             labelBrand.Font = new Font("Bebas Neue", 22F, FontStyle.Regular);
             labelBrand.ForeColor = Color.FromArgb(22, 163, 74);
@@ -144,6 +146,9 @@ namespace EvaluaTeach
             labelCard1Body.MaximumSize = new Size(cardPanel1.Width - 40, 0);
             labelCard2Body.MaximumSize = new Size(cardPanel2.Width - 40, 0);
             labelCard3Body.MaximumSize = new Size(cardPanel3.Width - 40, 0);
+
+            // Ensure AutoScroll knows the true content height (so the bottom cards aren't clipped).
+            heroPanel.AutoScrollMinSize = new Size(0, cardPanel3.Bottom + 28);
         }
 
         private void LandingPage_Resize(object? sender, EventArgs e)
