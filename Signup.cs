@@ -30,6 +30,21 @@ namespace EvaluaTeach
 
             labelTitle.ForeColor = Color.FromArgb(22, 163, 74);
 
+            var topBackBtn = new Button
+            {
+                Text = "Back",
+                BackColor = Color.Transparent,
+                ForeColor = Color.FromArgb(100, 116, 139),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter", 10F),
+                Size = new Size(80, 32),
+                Location = new Point(24, 24)
+            };
+            topBackBtn.Click += (_, _) => Program.NavigateTo(new LandingPage());
+            Controls.Add(topBackBtn);
+            topBackBtn.BringToFront();
+
             panel1.BackColor = Color.White;
             panel1.Padding = new Padding(24);
 
@@ -189,6 +204,57 @@ namespace EvaluaTeach
         private void Signup_Resize(object? sender, EventArgs e)
         {
             UpdateSignupLayout();
+        }
+
+        private void buttonCreateAccount_Click(object sender, EventArgs e)
+        {
+            string studentId = textBoxStudentId.Text.Trim();
+            string fullName = textBoxFullName.Text.Trim();
+            string email = textBoxEmail.Text.Trim();
+            string program = comboBoxProgram.SelectedItem?.ToString() ?? "BSIT";
+            string password = textBoxPassword.Text;
+            string confirmPassword = textBoxConfirmPassword.Text;
+
+            if (string.IsNullOrWhiteSpace(studentId) || studentId == "e.g. 2024-000123")
+            {
+                MessageBox.Show("Please enter your Student ID.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(fullName) || fullName == "Enter your full name")
+            {
+                MessageBox.Show("Please enter your full name.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(email) || email == "Enter your school email")
+            {
+                MessageBox.Show("Please enter your email.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(password) || password == "Create a password")
+            {
+                MessageBox.Show("Please create a password.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (password != confirmPassword)
+            {
+                MessageBox.Show("Passwords do not match.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string meta = $"Student {program}";
+            SessionStore.Login(studentId, fullName, email, UserRole.Student);
+            ProfileStore.UpdateProfile(fullName, meta, email, studentId);
+
+            FormDataStore.SeedSampleData();
+
+            MessageBox.Show("Account created successfully! Welcome to EvaluaTeach.",
+                "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            Program.NavigateTo(new Home());
         }
     }
 }

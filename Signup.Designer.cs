@@ -257,6 +257,7 @@
             buttonCreateAccount.TabIndex = 17;
             buttonCreateAccount.Text = "Create Account";
             buttonCreateAccount.UseVisualStyleBackColor = true;
+            buttonCreateAccount.Click += new EventHandler(this.buttonCreateAccount_Click);
             // 
             // Signup
             // 

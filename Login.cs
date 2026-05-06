@@ -12,6 +12,7 @@ namespace EvaluaTeach
     {
         private readonly Color placeholderColor = Color.FromArgb(148, 163, 184);
         private readonly Color inputTextColor = Color.FromArgb(30, 41, 59);
+        private ComboBox roleSelector = new();
 
         public Login()
         {
@@ -21,7 +22,7 @@ namespace EvaluaTeach
 
         private void ConfigureLoginUi()
         {
-            MinimumSize = new Size(900, 560);
+            MinimumSize = new Size(900, 600);
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.FromArgb(241, 245, 249);
             Text = "EvaluaTeach Login";
@@ -33,10 +34,25 @@ namespace EvaluaTeach
 
             panel1.BackColor = Color.White;
             panel1.Padding = new Padding(28);
-            panel1.MaximumSize = new Size(360, 220);
-            panel1.MinimumSize = new Size(320, 220);
+            panel1.MaximumSize = new Size(360, 320);
+            panel1.MinimumSize = new Size(320, 320);
 
-            label2.Text = "Student ID";
+            var backBtn = new Button
+            {
+                Text = "Back",
+                BackColor = Color.Transparent,
+                ForeColor = Color.FromArgb(100, 116, 139),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter", 9F),
+                Size = new Size(60, 28),
+                Location = new Point(28, 24)
+            };
+            backBtn.Click += (_, _) => Program.NavigateTo(new LandingPage());
+
+            panel1.Controls.Add(backBtn);
+
+            label2.Text = "User ID";
             label2.Font = new Font("Inter SemiBold", 10F, FontStyle.Bold);
             label2.ForeColor = Color.FromArgb(51, 65, 85);
 
@@ -44,8 +60,39 @@ namespace EvaluaTeach
             label1.Font = new Font("Inter SemiBold", 10F, FontStyle.Bold);
             label1.ForeColor = Color.FromArgb(51, 65, 85);
 
-            StyleTextBox(textBox1, "Enter your student ID");
+            StyleTextBox(textBox1, "Enter your ID");
             StyleTextBox(textBox2, "Enter your password", true);
+
+            var roleLabel = new Label
+            {
+                Text = "Login As",
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(28, 180)
+            };
+
+            roleSelector = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("Inter", 10F),
+                BackColor = Color.FromArgb(248, 250, 252),
+                FlatStyle = FlatStyle.Flat,
+                Location = new Point(28, 204),
+                Size = new Size(304, 28)
+            };
+            roleSelector.Items.AddRange(new[] { "Student", "Admin" });
+            roleSelector.SelectedIndex = 0;
+            roleSelector.SelectedIndexChanged += (_, _) =>
+            {
+                label2.Text = roleSelector.SelectedIndex == 0 ? "Student ID" : "Admin ID";
+                textBox1.Tag = roleSelector.SelectedIndex == 0 ? "Enter your student ID" : "Enter your admin ID";
+                if (textBox1.Text == "Enter your ID")
+                    textBox1.Text = textBox1.Tag as string ?? "";
+            };
+
+            panel1.Controls.Add(roleLabel);
+            panel1.Controls.Add(roleSelector);
 
             button1.FlatStyle = FlatStyle.Flat;
             button1.FlatAppearance.BorderSize = 0;
@@ -98,9 +145,13 @@ namespace EvaluaTeach
 
         private void UpdateLoginLayout()
         {
-            panel1.Size = new Size(Math.Min(360, ClientSize.Width - 120), 220);
+            panel1.Size = new Size(Math.Min(360, ClientSize.Width - 120), 320);
 
-            label2.Location = new Point(28, 24);
+            var backBtn = panel1.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Back");
+            if (backBtn != null)
+                backBtn.Location = new Point(28, 24);
+
+            label2.Location = new Point(28, 60);
             textBox1.Location = new Point(28, label2.Bottom + 10);
             textBox1.Size = new Size(panel1.Width - 56, 32);
 
@@ -108,7 +159,18 @@ namespace EvaluaTeach
             textBox2.Location = new Point(28, label1.Bottom + 10);
             textBox2.Size = new Size(panel1.Width - 56, 32);
 
-            button1.Location = new Point((panel1.Width - button1.Width) / 2, textBox2.Bottom + 24);
+            var roleLabel = panel1.Controls.OfType<Label>().FirstOrDefault(l => l.Text == "Login As");
+            if (roleLabel != null)
+            {
+                roleLabel.Location = new Point(28, textBox2.Bottom + 18);
+                roleSelector.Location = new Point(28, roleLabel.Bottom + 8);
+                roleSelector.Size = new Size(panel1.Width - 56, 28);
+                button1.Location = new Point((panel1.Width - button1.Width) / 2, roleSelector.Bottom + 20);
+            }
+            else
+            {
+                button1.Location = new Point((panel1.Width - button1.Width) / 2, textBox2.Bottom + 24);
+            }
         }
 
         private void Login_Resize(object? sender, EventArgs e)
@@ -163,7 +225,41 @@ namespace EvaluaTeach
 
         private void button1_Click(object sender, EventArgs e)
         {
-            Program.NavigateTo(new Home());
+            string userId = textBox1.Text.Trim();
+            string password = textBox2.Text;
+
+            if (string.IsNullOrWhiteSpace(userId) || userId == "Enter your student ID" || userId == "Enter your admin ID")
+            {
+                MessageBox.Show("Please enter your ID.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(password) || password == "Enter your password")
+            {
+                MessageBox.Show("Please enter your password.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            bool isAdmin = roleSelector.SelectedIndex == 1;
+            UserRole role = isAdmin ? UserRole.Admin : UserRole.Student;
+
+            string name = isAdmin ? "Administrator" : userId;
+            string email = isAdmin ? "admin@evalu teach.edu" : $"{userId}@student.edu";
+            string meta = isAdmin ? "Administrator" : "Student BSIT";
+
+            SessionStore.Login(userId, name, email, role);
+            ProfileStore.UpdateProfile(name, meta, email, userId);
+
+            FormDataStore.SeedSampleData();
+
+            if (isAdmin)
+            {
+                Program.NavigateTo(new AdminHome());
+            }
+            else
+            {
+                Program.NavigateTo(new Home());
+            }
         }
     }
 }

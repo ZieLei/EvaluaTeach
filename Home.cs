@@ -163,9 +163,44 @@ namespace EvaluaTeach
 
             button1.Click += (_, _) => ShowDashboardView();
             button2.Click += (_, _) => ShowNotificationsView();
+            button4.Click += (_, _) => OpenStudentForms();
+
+            FormDataStore.FormsUpdated += OnFormsUpdated;
 
             ShowDashboardView();
             UpdateResponsiveLayout();
+            UpdateMetrics();
+        }
+
+        private void OpenStudentForms()
+        {
+            var formsView = new StudentFormsView();
+            formsView.ShowDialog(this);
+        }
+
+        private void OnFormsUpdated()
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(OnFormsUpdated));
+                return;
+            }
+            UpdateMetrics();
+        }
+
+        private void UpdateMetrics()
+        {
+            var department = ProfileStore.Meta.Replace("Student ", "").Trim();
+            var forms = FormDataStore.GetFormsForStudent(department);
+            var studentId = SessionStore.UserId ?? ProfileStore.StudentId;
+
+            int total = forms.Count;
+            int pending = forms.Count(f => !FormDataStore.HasStudentSubmitted(f.Id, studentId));
+            int completed = total - pending;
+
+            metricLabel1.Text = $"{total} Forms";
+            metricLabel2.Text = $"{pending} Pending";
+            metricLabel3.Text = $"{completed} Completed";
         }
 
         private void ConfigureDashboardPanels()
@@ -177,7 +212,11 @@ namespace EvaluaTeach
             summaryTitle.AutoSize = true;
             summaryTitle.Font = new Font("Inter", 18F, FontStyle.Bold);
             summaryTitle.ForeColor = Color.White;
-            summaryTitle.Text = "Welcome back, Mang Juan";
+            summaryTitle.Text = $"Welcome back, {SessionStore.UserName ?? ProfileStore.Name}";
+            SessionStore.SessionUpdated += () =>
+            {
+                summaryTitle.Text = $"Welcome back, {SessionStore.UserName}";
+            };
 
             summaryBody.AutoSize = true;
             summaryBody.Font = new Font("Inter", 10F, FontStyle.Regular);

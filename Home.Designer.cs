@@ -132,7 +132,7 @@
             button4.Name = "button4";
             button4.Size = new Size(96, 38);
             button4.TabIndex = 3;
-            button4.Text = "Evaluate";
+            button4.Text = "View Forms";
             button4.UseVisualStyleBackColor = false;
             // 
             // label8

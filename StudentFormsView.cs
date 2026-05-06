@@ -1,0 +1,313 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
+using System.Windows.Forms;
+
+namespace EvaluaTeach
+{
+    public partial class StudentFormsView : Form
+    {
+        private void InitializeComponent() { }
+
+        private readonly FlowLayoutPanel formsListPanel = new();
+        private readonly Label statusLabel = new();
+        private readonly Panel contentPanel = new();
+
+        public StudentFormsView()
+        {
+            InitializeComponent();
+            ConfigureStudentFormsView();
+            LoadAvailableForms();
+            FormDataStore.FormsUpdated += OnFormsUpdated;
+        }
+
+        private void ConfigureStudentFormsView()
+        {
+            Text = "Available Evaluation Forms";
+            MinimumSize = new Size(900, 600);
+            StartPosition = FormStartPosition.CenterParent;
+            BackColor = Color.FromArgb(245, 247, 251);
+            Size = new Size(900, 700);
+
+            var header = new Panel
+            {
+                BackColor = Color.White,
+                Dock = DockStyle.Top,
+                Height = 80,
+                Padding = new Padding(32, 24, 32, 16)
+            };
+
+            var titleLabel = new Label
+            {
+                Text = "Evaluation Forms",
+                Font = new Font("Inter", 20F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(32, 20)
+            };
+
+            var subtitleLabel = new Label
+            {
+                Text = "Complete the following evaluations for your teachers",
+                Font = new Font("Inter", 11F),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                AutoSize = true,
+                Location = new Point(32, 50)
+            };
+
+            var backBtn = new Button
+            {
+                Text = "Back to Home",
+                BackColor = Color.FromArgb(248, 250, 252),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(120, 36),
+                Location = new Point(Width - 152, 22),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+            backBtn.Click += (_, _) => Close();
+
+            header.Controls.Add(titleLabel);
+            header.Controls.Add(subtitleLabel);
+            header.Controls.Add(backBtn);
+
+            contentPanel.BackColor = Color.FromArgb(245, 247, 251);
+            contentPanel.Location = new Point(0, 80);
+            contentPanel.Size = new Size(Width, Height - 80);
+            contentPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            contentPanel.AutoScroll = true;
+
+            statusLabel.Font = new Font("Inter", 12F);
+            statusLabel.ForeColor = Color.FromArgb(148, 163, 184);
+            statusLabel.AutoSize = true;
+            statusLabel.Location = new Point(32, 32);
+            statusLabel.Text = "Loading forms...";
+
+            formsListPanel.FlowDirection = FlowDirection.TopDown;
+            formsListPanel.WrapContents = false;
+            formsListPanel.AutoScroll = true;
+            formsListPanel.BackColor = Color.Transparent;
+            formsListPanel.Location = new Point(32, 80);
+            formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 100);
+            formsListPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+
+            contentPanel.Controls.Add(statusLabel);
+            contentPanel.Controls.Add(formsListPanel);
+
+            Controls.Add(header);
+            Controls.Add(contentPanel);
+        }
+
+        private void LoadAvailableForms()
+        {
+            formsListPanel.Controls.Clear();
+
+            var department = ProfileStore.Meta.Replace("Student ", "").Trim();
+            var forms = FormDataStore.GetFormsForStudent(department);
+            var studentId = SessionStore.UserId;
+
+            if (string.IsNullOrEmpty(studentId))
+            {
+                studentId = ProfileStore.StudentId;
+            }
+
+            var availableForms = forms.Where(f => !FormDataStore.HasStudentSubmitted(f.Id, studentId)).ToList();
+            var completedForms = forms.Where(f => FormDataStore.HasStudentSubmitted(f.Id, studentId)).ToList();
+
+            if (!availableForms.Any() && !completedForms.Any())
+            {
+                statusLabel.Text = "No evaluation forms available at this time.";
+                statusLabel.ForeColor = Color.FromArgb(148, 163, 184);
+                return;
+            }
+
+            statusLabel.Text = $"{availableForms.Count} pending, {completedForms.Count} completed";
+            statusLabel.ForeColor = Color.FromArgb(100, 116, 139);
+
+            if (availableForms.Any())
+            {
+                var pendingHeader = new Label
+                {
+                    Text = "Pending Evaluations",
+                    Font = new Font("Inter", 14F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(15, 23, 42),
+                    AutoSize = true,
+                    Location = new Point(0, 0),
+                    Margin = new Padding(0, 0, 0, 16)
+                };
+                formsListPanel.Controls.Add(pendingHeader);
+
+                foreach (var form in availableForms)
+                {
+                    var card = CreateFormCard(form, false);
+                    formsListPanel.Controls.Add(card);
+                }
+            }
+
+            if (completedForms.Any())
+            {
+                int yOffset = availableForms.Any() ? 32 : 0;
+                var completedHeader = new Label
+                {
+                    Text = "Completed Evaluations",
+                    Font = new Font("Inter", 14F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(100, 116, 139),
+                    AutoSize = true,
+                    Location = new Point(0, 0),
+                    Margin = new Padding(0, yOffset, 0, 16)
+                };
+                formsListPanel.Controls.Add(completedHeader);
+
+                foreach (var form in completedForms)
+                {
+                    var card = CreateFormCard(form, true);
+                    formsListPanel.Controls.Add(card);
+                }
+            }
+        }
+
+        private Panel CreateFormCard(EvaluationForm form, bool isCompleted)
+        {
+            var card = new Panel
+            {
+                BackColor = isCompleted ? Color.FromArgb(248, 250, 252) : Color.White,
+                Size = new Size(formsListPanel.Width - 40, 160),
+                Margin = new Padding(0, 0, 0, 16),
+                Padding = new Padding(24)
+            };
+
+            var statusColor = isCompleted ? Color.FromArgb(148, 163, 184) : Color.FromArgb(38, 166, 91);
+            var statusText = isCompleted ? "Completed" : "Pending";
+
+            var title = new Label
+            {
+                Text = form.Title,
+                Font = new Font("Inter", 15F, FontStyle.Bold),
+                ForeColor = isCompleted ? Color.FromArgb(100, 116, 139) : Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(24, 20)
+            };
+
+            var description = new Label
+            {
+                Text = string.IsNullOrEmpty(form.Description) ? "No description provided" : form.Description,
+                Font = new Font("Inter", 10F),
+                ForeColor = isCompleted ? Color.FromArgb(148, 163, 184) : Color.FromArgb(100, 116, 139),
+                AutoSize = true,
+                Location = new Point(24, 50),
+                MaximumSize = new Size(card.Width - 200, 0)
+            };
+
+            var meta = new Label
+            {
+                Text = $"{form.Questions.Count} questions",
+                Font = new Font("Inter", 9F),
+                ForeColor = Color.FromArgb(148, 163, 184),
+                AutoSize = true,
+                Location = new Point(24, 85)
+            };
+
+            if (form.DueDate.HasValue)
+            {
+                var dueLabel = new Label
+                {
+                    Text = $"Due: {form.DueDate.Value:MMM dd, yyyy}",
+                    Font = new Font("Inter", 9F),
+                    ForeColor = form.DueDate.Value < DateTime.Now.AddDays(3)
+                        ? Color.FromArgb(239, 68, 68)
+                        : Color.FromArgb(148, 163, 184),
+                    AutoSize = true,
+                    Location = new Point(120, 85)
+                };
+                card.Controls.Add(dueLabel);
+            }
+
+            var statusBadge = new Label
+            {
+                Text = statusText,
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.White,
+                BackColor = statusColor,
+                AutoSize = true,
+                Padding = new Padding(8, 4, 8, 4),
+                Location = new Point(card.Width - 100, 24)
+            };
+
+            card.Controls.Add(title);
+            card.Controls.Add(description);
+            card.Controls.Add(meta);
+            card.Controls.Add(statusBadge);
+
+            if (!isCompleted)
+            {
+                var startBtn = new Button
+                {
+                    Text = "Start Evaluation",
+                    BackColor = Color.FromArgb(38, 166, 91),
+                    ForeColor = Color.White,
+                    FlatStyle = FlatStyle.Flat,
+                    FlatAppearance = { BorderSize = 0 },
+                    Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                    Size = new Size(140, 40),
+                    Location = new Point(card.Width - 164, 100)
+                };
+                startBtn.Click += (_, _) => OpenFormViewer(form);
+
+                card.Controls.Add(startBtn);
+            }
+            else
+            {
+                var submittedLabel = new Label
+                {
+                    Text = "Submitted",
+                    Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(148, 163, 184),
+                    AutoSize = true,
+                    Location = new Point(card.Width - 90, 108)
+                };
+                card.Controls.Add(submittedLabel);
+            }
+
+            card.Resize += (_, _) =>
+            {
+                statusBadge.Location = new Point(card.Width - 100, 24);
+                description.MaximumSize = new Size(card.Width - 200, 0);
+                if (!isCompleted)
+                {
+                    var btn = card.Controls.OfType<Button>().FirstOrDefault();
+                    if (btn != null) btn.Location = new Point(card.Width - 164, 100);
+                }
+                else
+                {
+                    var lbl = card.Controls.OfType<Label>().FirstOrDefault(l => l.Text == "Submitted");
+                    if (lbl != null) lbl.Location = new Point(card.Width - 90, 108);
+                }
+            };
+
+            return card;
+        }
+
+        private void OpenFormViewer(EvaluationForm form)
+        {
+            var viewer = new FormViewer(form);
+            viewer.FormSubmitted += () =>
+            {
+                LoadAvailableForms();
+            };
+            viewer.ShowDialog(this);
+        }
+
+        private void OnFormsUpdated()
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(OnFormsUpdated));
+                return;
+            }
+            LoadAvailableForms();
+        }
+    }
+}
