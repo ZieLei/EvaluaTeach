@@ -20,7 +20,6 @@ namespace EvaluaTeach
         private readonly Button dashboardBtn = new();
         private readonly Button responsesBtn = new();
         private readonly Label dashboardSubtitleLabel = new();
-        private readonly Button dashboardCreateBtn = new();
         private readonly Label responsesSubtitleLabel = new();
 
         private readonly Label statsLabel1 = new();
@@ -69,15 +68,6 @@ namespace EvaluaTeach
             sidebar.Dock = DockStyle.Left;
             sidebar.Width = 240;
 
-            var logoLabel = new Label
-            {
-                Text = "EvaluaTeach",
-                ForeColor = Color.FromArgb(38, 166, 91),
-                Font = new Font("Bebas Neue", 24F),
-                AutoSize = true,
-                Location = new Point(24, 24)
-            };
-
             dashboardBtn.Text = "  Dashboard";
             dashboardBtn.BackColor = Color.FromArgb(38, 166, 91);
             dashboardBtn.ForeColor = Color.White;
@@ -85,7 +75,7 @@ namespace EvaluaTeach
             dashboardBtn.FlatAppearance.BorderSize = 0;
             dashboardBtn.Font = new Font("Inter SemiBold", 11F, FontStyle.Bold);
             dashboardBtn.Size = new Size(192, 48);
-            dashboardBtn.Location = new Point(24, 80);
+            dashboardBtn.Location = new Point(24, 24);
             dashboardBtn.TextAlign = ContentAlignment.MiddleLeft;
             dashboardBtn.Click += (_, _) => ShowDashboard();
 
@@ -96,7 +86,7 @@ namespace EvaluaTeach
             responsesBtn.FlatAppearance.BorderSize = 0;
             responsesBtn.Font = new Font("Inter", 11F);
             responsesBtn.Size = new Size(192, 48);
-            responsesBtn.Location = new Point(24, 140);
+            responsesBtn.Location = new Point(24, 84);
             responsesBtn.TextAlign = ContentAlignment.MiddleLeft;
             responsesBtn.Click += (_, _) => ShowResponses();
 
@@ -112,7 +102,6 @@ namespace EvaluaTeach
             logoutBtn.TextAlign = ContentAlignment.MiddleCenter;
             logoutBtn.Click += (_, _) => Logout();
 
-            sidebar.Controls.Add(logoLabel);
             sidebar.Controls.Add(dashboardBtn);
             sidebar.Controls.Add(responsesBtn);
             sidebar.Controls.Add(logoutBtn);
@@ -123,6 +112,15 @@ namespace EvaluaTeach
             header.BackColor = Color.White;
             header.Height = 72;
             header.Dock = DockStyle.Top;
+
+            var logoLabel = new Label
+            {
+                Text = "EvaluaTeach",
+                ForeColor = Color.FromArgb(38, 166, 91),
+                Font = new Font("Bebas Neue", 24F),
+                AutoSize = true,
+                Location = new Point(16, 16)
+            };
 
             titleLabel.Text = "Evaluation Forms Management";
             titleLabel.Font = new Font("Inter", 18F, FontStyle.Bold);
@@ -142,6 +140,7 @@ namespace EvaluaTeach
             createFormBtn.Click += (_, _) => OpenFormBuilder();
             createFormBtn.BringToFront();
 
+            header.Controls.Add(logoLabel);
             header.Controls.Add(titleLabel);
             header.Controls.Add(createFormBtn);
             header.Width = header.Parent?.ClientSize.Width ?? 800;
@@ -172,21 +171,10 @@ namespace EvaluaTeach
             formsListPanel.WrapContents = false;
             formsListPanel.AutoScroll = true;
             formsListPanel.BackColor = Color.Transparent;
-            formsListPanel.Location = new Point(32, 170);
-            formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 140);
+            formsListPanel.Location = new Point(32, 190);
+            formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 206);
             formsListPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
-            dashboardCreateBtn.Text = "+ Create New Form";
-            dashboardCreateBtn.BackColor = Color.FromArgb(38, 166, 91);
-            dashboardCreateBtn.ForeColor = Color.White;
-            dashboardCreateBtn.FlatStyle = FlatStyle.Flat;
-            dashboardCreateBtn.FlatAppearance.BorderSize = 0;
-            dashboardCreateBtn.Font = new Font("Inter SemiBold", 11F, FontStyle.Bold);
-            dashboardCreateBtn.Size = new Size(180, 50);
-            dashboardCreateBtn.Location = new Point(32, 52);
-            dashboardCreateBtn.Click += (_, _) => OpenFormBuilder();
-
-            contentPanel.Controls.Add(dashboardCreateBtn);
             contentPanel.Controls.Add(dashboardSubtitleLabel);
             contentPanel.Controls.Add(responsesSubtitleLabel);
             contentPanel.Controls.Add(formsListPanel);
@@ -336,7 +324,7 @@ namespace EvaluaTeach
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
                 Size = new Size(70, 32),
-                Location = new Point(card.Width - 160, 90)
+                Location = new Point(card.Width - 188, 90)
             };
             editBtn.Click += (_, _) => EditForm(form);
 
@@ -348,8 +336,8 @@ namespace EvaluaTeach
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                Size = new Size(90, 32),
-                Location = new Point(card.Width - 102, 90)
+                Size = new Size(102, 32),
+                Location = new Point(card.Width - 110, 90)
             };
             toggleBtn.Click += (_, _) => ToggleFormStatus(form);
 
@@ -365,8 +353,8 @@ namespace EvaluaTeach
             {
                 statusBadge.Location = new Point(card.Width - 100, 20);
                 responsesLabel.Location = new Point(card.Width - 120, 50);
-                editBtn.Location = new Point(card.Width - 160, 90);
-                toggleBtn.Location = new Point(card.Width - 102, 90);
+                editBtn.Location = new Point(card.Width - 188, 90);
+                toggleBtn.Location = new Point(card.Width - 110, 90);
                 description.MaximumSize = new Size(card.Width - 240, 0);
             };
 
@@ -378,12 +366,11 @@ namespace EvaluaTeach
             logoutBtn.Location = new Point(24, ClientSize.Height - 80);
 
             createFormBtn.Location = new Point(header.ClientSize.Width - createFormBtn.Width - 24, 14);
-            dashboardCreateBtn.Location = new Point(contentPanel.ClientSize.Width - dashboardCreateBtn.Width - 32, 52);
 
             if (!showingResponses)
             {
-                formsListPanel.Location = new Point(32, 198);
-                formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 214);
+                formsListPanel.Location = new Point(32, 190);
+                formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 206);
             }
             else
             {
@@ -448,14 +435,13 @@ namespace EvaluaTeach
             responsesBtn.ForeColor = Color.FromArgb(203, 213, 225);
             titleLabel.Text = "Evaluation Forms Management";
             createFormBtn.Visible = true;
-            dashboardCreateBtn.Visible = true;
             dashboardSubtitleLabel.Visible = true;
             responsesSubtitleLabel.Visible = false;
             statsLabel1.Visible = true;
             statsLabel2.Visible = true;
             statsLabel3.Visible = true;
-            formsListPanel.Location = new Point(32, 198);
-            formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 214);
+            formsListPanel.Location = new Point(32, 190);
+            formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 206);
             LoadFormsList();
         }
 
@@ -468,7 +454,6 @@ namespace EvaluaTeach
             responsesBtn.ForeColor = Color.White;
             titleLabel.Text = "Student Responses";
             createFormBtn.Visible = false;
-            dashboardCreateBtn.Visible = false;
             dashboardSubtitleLabel.Visible = false;
             responsesSubtitleLabel.Visible = true;
             statsLabel1.Visible = false;

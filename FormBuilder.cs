@@ -222,7 +222,8 @@ namespace EvaluaTeach
                 Location = new Point(24, 55)
             };
 
-            typeSelector.Location = new Point(140, 52);
+            // Move selector to avoid clipping/overlap with the label text.
+            typeSelector.Location = new Point(170, 52);
             typeSelector.Size = new Size(160, 28);
             typeSelector.Font = new Font("Inter", 10F);
             typeSelector.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -238,7 +239,7 @@ namespace EvaluaTeach
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
                 Size = new Size(130, 32),
-                Location = new Point(320, 50)
+                Location = new Point(350, 50)
             };
             addBtn.Click += AddQuestion;
 
@@ -251,26 +252,11 @@ namespace EvaluaTeach
             questionsPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             questionsPanel.Padding = new Padding(16);
 
-            var bottomSaveBtn = new Button
-            {
-                Text = "Save Form",
-                BackColor = Color.FromArgb(38, 166, 91),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                FlatAppearance = { BorderSize = 0 },
-                Font = new Font("Inter SemiBold", 12F, FontStyle.Bold),
-                Size = new Size(160, 48),
-                Location = new Point(section.Width - 200, section.Height - 70),
-                Anchor = AnchorStyles.Bottom | AnchorStyles.Right
-            };
-            bottomSaveBtn.Click += SaveForm;
-
             section.Controls.Add(sectionTitle);
             section.Controls.Add(typeLabel);
             section.Controls.Add(typeSelector);
             section.Controls.Add(addBtn);
             section.Controls.Add(questionsPanel);
-            section.Controls.Add(bottomSaveBtn);
 
             parent.Controls.Add(section);
 
