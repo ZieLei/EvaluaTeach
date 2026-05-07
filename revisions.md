@@ -124,7 +124,15 @@ login card is off putting make it more centered with space on the sides plus the
 
 
 
-create forms when adding more and more questions the cards go off the screen making it impossible to add the question or the option
+when saving an edit of a form it should also prompt a warning that existing responses for said form will be removed 
+
+
+
+~~create forms when adding more and more questions the cards go off the screen making it impossible to add the question or the option~~
+
+
+
+"scale: 1 to 5" is clipping "Required" in the questions part of creating forms
 
 
 
@@ -132,7 +140,7 @@ database integration
 
 
 
-
+~~editing a form then saving does not update the form~~
 
 
 

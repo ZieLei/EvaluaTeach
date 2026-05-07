@@ -282,20 +282,33 @@ namespace EvaluaTeach
             };
             addBtn.Click += AddQuestion;
 
+            // Create a scrollable container for questions - fixed height to fit on screen
+            var scrollContainer = new Panel
+            {
+                BackColor = Color.FromArgb(248, 250, 252),
+                Location = new Point(24, 100),
+                Size = new Size(section.Width - 48, 600),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                AutoScroll = true,
+                Padding = new Padding(8)
+            };
+
             questionsPanel.FlowDirection = FlowDirection.TopDown;
             questionsPanel.WrapContents = false;
-            questionsPanel.AutoScroll = true;
+            questionsPanel.AutoScroll = false;
+            questionsPanel.AutoSize = true;
             questionsPanel.BackColor = Color.FromArgb(248, 250, 252);
-            questionsPanel.Location = new Point(24, 100);
-            questionsPanel.Size = new Size(section.Width - 48, section.Height - 130);
-            questionsPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            questionsPanel.Padding = new Padding(16);
+            questionsPanel.Dock = DockStyle.Top;
+            questionsPanel.Padding = new Padding(8);
+            questionsPanel.Margin = new Padding(0);
+
+            scrollContainer.Controls.Add(questionsPanel);
 
             section.Controls.Add(sectionTitle);
             section.Controls.Add(typeLabel);
             section.Controls.Add(typeSelector);
             section.Controls.Add(addBtn);
-            section.Controls.Add(questionsPanel);
+            section.Controls.Add(scrollContainer);
 
             parent.Controls.Add(section);
 
@@ -533,11 +546,6 @@ namespace EvaluaTeach
             form.Questions = questions.OrderBy(q => q.OrderIndex).ToList();
             form.IsActive = true;
 
-            // DEBUG: Show what we're about to save
-            string debugInfo = string.Join("\n", form.Questions.Select(q => 
-                $"{q.Type}: {q.Text} - Options: {(q.Options?.Count ?? 0)} [{string.Join(", ", q.Options ?? new List<string>())}]"));
-            MessageBox.Show(debugInfo, "DEBUG: Questions to Save", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
             if (editingForm == null)
             {
                 form.CreatedBy = SessionStore.UserName;
@@ -546,6 +554,23 @@ namespace EvaluaTeach
             }
             else
             {
+                // Check if form has existing responses
+                int submissionCount = FormDataStore.GetSubmissionCount(editingForm.Id);
+                System.Diagnostics.Debug.WriteLine($"DEBUG: Form {editingForm.Id} has {submissionCount} submissions");
+                if (submissionCount > 0)
+                {
+                    var result = MessageBox.Show(
+                        $"This form has {submissionCount} existing submission(s).\n\n" +
+                        "Editing this form will delete all existing responses.\n" +
+                        "Do you want to continue?",
+                        "Warning: Existing Responses",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning);
+
+                    if (result == DialogResult.No)
+                        return;
+                }
+
                 FormDataStore.UpdateForm(form);
             }
 

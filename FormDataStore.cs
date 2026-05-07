@@ -228,21 +228,84 @@ namespace EvaluaTeach
         {
             using var conn = Database.GetConnection();
             conn.Open();
+            using var tx = conn.BeginTransaction();
 
-            var cmd = new MySqlCommand(@"
-                UPDATE EvaluationForm 
-                SET Title = @title, Description = @desc, TargetCourse = @course, 
-                    DueDate = @dueDate, IsActive = @isActive
-                WHERE EvaluationID = @id", conn);
-            cmd.Parameters.AddWithValue("@id", form.Id);
-            cmd.Parameters.AddWithValue("@title", form.Title);
-            cmd.Parameters.AddWithValue("@desc", string.IsNullOrEmpty(form.Description) ? (object)DBNull.Value : form.Description);
-            cmd.Parameters.AddWithValue("@course", form.TargetCourse ?? "All");
-            cmd.Parameters.AddWithValue("@dueDate", form.DueDate.HasValue ? (object)form.DueDate.Value : DBNull.Value);
-            cmd.Parameters.AddWithValue("@isActive", form.IsActive);
-            cmd.ExecuteNonQuery();
+            try
+            {
+                // Update form metadata
+                var cmd = new MySqlCommand(@"
+                    UPDATE EvaluationForm 
+                    SET Title = @title, Description = @desc, TargetCourse = @course, 
+                        DueDate = @dueDate, IsActive = @isActive
+                    WHERE EvaluationID = @id", conn, tx);
+                cmd.Parameters.AddWithValue("@id", form.Id);
+                cmd.Parameters.AddWithValue("@title", form.Title);
+                cmd.Parameters.AddWithValue("@desc", string.IsNullOrEmpty(form.Description) ? (object)DBNull.Value : form.Description);
+                cmd.Parameters.AddWithValue("@course", form.TargetCourse ?? "All");
+                cmd.Parameters.AddWithValue("@dueDate", form.DueDate.HasValue ? (object)form.DueDate.Value : DBNull.Value);
+                cmd.Parameters.AddWithValue("@isActive", form.IsActive);
+                cmd.ExecuteNonQuery();
 
-            FormsUpdated?.Invoke();
+                // First delete responses and submissions for this form (to satisfy FKs)
+                var deleteResponsesCmd = new MySqlCommand(@"
+                    DELETE sr FROM SurveyResponse sr
+                    INNER JOIN SurveyQuestion sq ON sr.QuestionID = sq.QuestionID
+                    WHERE sq.EvaluationID = @formId", conn, tx);
+                deleteResponsesCmd.Parameters.AddWithValue("@formId", form.Id);
+                deleteResponsesCmd.ExecuteNonQuery();
+
+                // Delete form submissions
+                var deleteSubmissionsCmd = new MySqlCommand(@"
+                    DELETE FROM FormSubmission WHERE EvaluationID = @formId", conn, tx);
+                deleteSubmissionsCmd.Parameters.AddWithValue("@formId", form.Id);
+                deleteSubmissionsCmd.ExecuteNonQuery();
+
+                // Delete existing questions (cascades to options via FK)
+                var deleteCmd = new MySqlCommand(@"
+                    DELETE FROM SurveyQuestion WHERE EvaluationID = @formId", conn, tx);
+                deleteCmd.Parameters.AddWithValue("@formId", form.Id);
+                deleteCmd.ExecuteNonQuery();
+
+                // Re-insert all questions with new IDs
+                foreach (var q in form.Questions)
+                {
+                    var qCmd = new MySqlCommand(@"
+                        INSERT INTO SurveyQuestion (EvaluationID, QuestionText, QuestionType, OrderIndex, IsRequired, MinRating, MaxRating)
+                        VALUES (@formId, @text, @type, @orderIdx, @isRequired, @minRating, @maxRating)", conn, tx);
+                    qCmd.Parameters.AddWithValue("@formId", form.Id);
+                    qCmd.Parameters.AddWithValue("@text", q.Text);
+                    qCmd.Parameters.AddWithValue("@type", q.Type.ToString().ToLower());
+                    qCmd.Parameters.AddWithValue("@orderIdx", q.OrderIndex);
+                    qCmd.Parameters.AddWithValue("@isRequired", q.IsRequired);
+                    qCmd.Parameters.AddWithValue("@minRating", q.MinRating.HasValue ? (object)q.MinRating.Value : DBNull.Value);
+                    qCmd.Parameters.AddWithValue("@maxRating", q.MaxRating.HasValue ? (object)q.MaxRating.Value : DBNull.Value);
+                    qCmd.ExecuteNonQuery();
+                    q.Id = (int)qCmd.LastInsertedId;
+
+                    // Insert options for multiple choice questions
+                    if (q.Options != null && q.Options.Count > 0)
+                    {
+                        foreach (var optionText in q.Options)
+                        {
+                            var optCmd = new MySqlCommand(@"
+                                INSERT INTO QuestionOption (QuestionID, OptionText, OrderIndex)
+                                VALUES (@questionId, @optionText, @orderIdx)", conn, tx);
+                            optCmd.Parameters.AddWithValue("@questionId", q.Id);
+                            optCmd.Parameters.AddWithValue("@optionText", optionText);
+                            optCmd.Parameters.AddWithValue("@orderIdx", q.Options.IndexOf(optionText));
+                            optCmd.ExecuteNonQuery();
+                        }
+                    }
+                }
+
+                tx.Commit();
+                FormsUpdated?.Invoke();
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
         }
 
         public static void DeleteForm(int id)
