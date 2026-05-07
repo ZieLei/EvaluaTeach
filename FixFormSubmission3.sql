@@ -1,0 +1,26 @@
+-- Find and drop foreign keys referencing FormSubmission
+USE EvaluaTeach;
+
+-- Find FK constraints
+SELECT 
+    CONSTRAINT_NAME, 
+    TABLE_NAME, 
+    COLUMN_NAME, 
+    REFERENCED_TABLE_NAME, 
+    REFERENCED_COLUMN_NAME
+FROM 
+    INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+WHERE 
+    REFERENCED_TABLE_NAME = 'FormSubmission';
+
+-- Also check for any FKs in SurveyResponse
+SELECT 
+    CONSTRAINT_NAME,
+    TABLE_NAME,
+    COLUMN_NAME,
+    REFERENCED_TABLE_NAME
+FROM 
+    INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+WHERE 
+    TABLE_NAME = 'SurveyResponse' 
+    AND REFERENCED_TABLE_NAME IS NOT NULL;

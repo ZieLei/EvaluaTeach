@@ -13,7 +13,7 @@ namespace EvaluaTeach
 
     public class FormQuestion
     {
-        public Guid Id { get; set; } = Guid.NewGuid();
+        public int Id { get; set; }
         public string Text { get; set; } = string.Empty;
         public QuestionType Type { get; set; } = QuestionType.Rating;
         public bool IsRequired { get; set; } = true;
@@ -25,7 +25,7 @@ namespace EvaluaTeach
 
     public class EvaluationForm
     {
-        public Guid Id { get; set; } = Guid.NewGuid();
+        public int Id { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string TargetTeacher { get; set; } = string.Empty;
@@ -41,11 +41,11 @@ namespace EvaluaTeach
 
     public class FormResponse
     {
-        public Guid Id { get; set; } = Guid.NewGuid();
-        public Guid FormId { get; set; }
+        public int Id { get; set; }
+        public int FormId { get; set; }
         public string StudentId { get; set; } = string.Empty;
         public string StudentName { get; set; } = string.Empty;
         public DateTime SubmittedAt { get; set; } = DateTime.Now;
-        public Dictionary<Guid, string> Answers { get; set; } = new();
+        public Dictionary<int, string> Answers { get; set; } = new();
     }
 }

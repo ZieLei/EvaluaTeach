@@ -12,7 +12,7 @@
 
 
 
-~~login back button is inside the form when it should be top left of the whole panel..~~ 
+~~login back button is inside the form when it should be top left of the whole panel..~~
 
 
 
@@ -60,11 +60,11 @@ search functionality is missing (low priority)
 
 
 
-~~view responses in admin view is way too limited.. also why is the create new, active forms and total responses in here when it should be in the dash board instead?~~ 
+~~view responses in admin view is way too limited.. also why is the create new, active forms and total responses in here when it should be in the dash board instead?~~
 
 
 
-~~view responses should be able to literally view responses... and also the option to send the response to the teachers as reports~~ 
+~~view responses should be able to literally view responses... and also the option to send the response to the teachers as reports~~
 
 
 
@@ -88,7 +88,7 @@ search functionality is missing (low priority)
 
 
 
-response list always shows department: All despite the department for said form is set as something specific
+~~response list always shows department: All despite the department for said form is set as something specific~~
 
 
 
@@ -103,7 +103,9 @@ the admin should be able to add new courses
 ~~when the student is in Evaluating: Teacher Performance Evaluation the 1-5 rate radio button box are weird looking.. make sure the square its in fits the content it holds.. especially since the "excellent" i can only see the top of it~~
 
 
+
 ~~in the Evaluating window for student the "0 of number answered" is not updating~~
+
 
 
 ~~also when answering a form it doesn't start the scroll pane at the top.. rather it starts at the center for some reason~~
@@ -113,4 +115,26 @@ the admin should be able to add new courses
 ~~evaluation forms in available evaluation forms is clipping the text "... for your teachers"~~
 
 
+
+admin logout button is clipping the button put it a little higher
+
+
+
+login card is off putting make it more centered with space on the sides plus the top is way too spaced as if it has a forehead
+
+
+
+create forms when adding more and more questions the cards go off the screen making it impossible to add the question or the option
+
+
+
+database integration
+
+
+
+
+
+
+
+papers - insert data needs to be updated to the new physical design
 

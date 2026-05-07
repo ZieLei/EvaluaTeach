@@ -23,25 +23,25 @@ namespace EvaluaTeach
                        DueDate, IsActive, DateCreated, CreatedBy
                 FROM EvaluationForm", conn);
 
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            using (var reader = cmd.ExecuteReader())
             {
-                forms.Add(new EvaluationForm
+                while (reader.Read())
                 {
-                    Id = Guid.Parse(reader.GetString("EvaluationID")),
-                    Title = reader.GetString("Title"),
-                    Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? "" : reader.GetString("Description"),
-                    TargetCourse = reader.IsDBNull(reader.GetOrdinal("TargetCourse")) ? "All" : reader.GetString("TargetCourse"),
-                    DueDate = reader.IsDBNull(reader.GetOrdinal("DueDate")) ? null : reader.GetDateTime("DueDate"),
-                    IsActive = reader.GetBoolean("IsActive"),
-                    CreatedAt = reader.GetDateTime("DateCreated"),
-                    CreatedBy = reader.IsDBNull(reader.GetOrdinal("CreatedBy")) ? "" : reader.GetString("CreatedBy"),
-                    Questions = new List<FormQuestion>()
-                });
+                    forms.Add(new EvaluationForm
+                    {
+                        Id = reader.GetInt32("EvaluationID"),
+                        Title = reader.GetString("Title"),
+                        Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? "" : reader.GetString("Description"),
+                        TargetCourse = reader.IsDBNull(reader.GetOrdinal("TargetCourse")) ? "All" : reader.GetString("TargetCourse"),
+                        DueDate = reader.IsDBNull(reader.GetOrdinal("DueDate")) ? null : reader.GetDateTime("DueDate"),
+                        IsActive = reader.GetBoolean("IsActive"),
+                        CreatedAt = reader.GetDateTime("DateCreated"),
+                        CreatedById = reader.IsDBNull(reader.GetOrdinal("CreatedBy")) ? null : reader.GetInt32("CreatedBy"),
+                        Questions = new List<FormQuestion>()
+                    });
+                }
             }
-            reader.Close();
 
-            // Load questions for each form
             foreach (var form in forms)
             {
                 form.Questions = GetQuestionsForForm(form.Id, conn);
@@ -64,7 +64,7 @@ namespace EvaluaTeach
                 .ToList();
         }
 
-        public static EvaluationForm? GetForm(Guid id)
+        public static EvaluationForm? GetForm(int id)
         {
             using var conn = Database.GetConnection();
             conn.Open();
@@ -73,30 +73,36 @@ namespace EvaluaTeach
                 SELECT EvaluationID, Title, Description, TargetCourse, 
                        DueDate, IsActive, DateCreated, CreatedBy
                 FROM EvaluationForm WHERE EvaluationID = @id", conn);
-            cmd.Parameters.AddWithValue("@id", id.ToString());
+            cmd.Parameters.AddWithValue("@id", id);
 
-            using var reader = cmd.ExecuteReader();
-            if (!reader.Read()) return null;
-
-            var form = new EvaluationForm
+            EvaluationForm? form = null;
+            using (var reader = cmd.ExecuteReader())
             {
-                Id = Guid.Parse(reader.GetString("EvaluationID")),
-                Title = reader.GetString("Title"),
-                Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? "" : reader.GetString("Description"),
-                TargetCourse = reader.IsDBNull(reader.GetOrdinal("TargetCourse")) ? "All" : reader.GetString("TargetCourse"),
-                DueDate = reader.IsDBNull(reader.GetOrdinal("DueDate")) ? null : reader.GetDateTime("DueDate"),
-                IsActive = reader.GetBoolean("IsActive"),
-                CreatedAt = reader.GetDateTime("DateCreated"),
-                CreatedBy = reader.IsDBNull(reader.GetOrdinal("CreatedBy")) ? "" : reader.GetString("CreatedBy"),
-                Questions = new List<FormQuestion>()
-            };
-            reader.Close();
+                if (reader.Read())
+                {
+                    form = new EvaluationForm
+                    {
+                        Id = reader.GetInt32("EvaluationID"),
+                        Title = reader.GetString("Title"),
+                        Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? "" : reader.GetString("Description"),
+                        TargetCourse = reader.IsDBNull(reader.GetOrdinal("TargetCourse")) ? "All" : reader.GetString("TargetCourse"),
+                        DueDate = reader.IsDBNull(reader.GetOrdinal("DueDate")) ? null : reader.GetDateTime("DueDate"),
+                        IsActive = reader.GetBoolean("IsActive"),
+                        CreatedAt = reader.GetDateTime("DateCreated"),
+                        CreatedById = reader.IsDBNull(reader.GetOrdinal("CreatedBy")) ? null : reader.GetInt32("CreatedBy"),
+                        Questions = new List<FormQuestion>()
+                    };
+                }
+            }
 
-            form.Questions = GetQuestionsForForm(form.Id, conn);
+            if (form != null)
+            {
+                form.Questions = GetQuestionsForForm(form.Id, conn);
+            }
             return form;
         }
 
-        private static List<FormQuestion> GetQuestionsForForm(Guid formId, MySqlConnection conn)
+        private static List<FormQuestion> GetQuestionsForForm(int formId, MySqlConnection conn)
         {
             var questions = new List<FormQuestion>();
             var cmd = new MySqlCommand(@"
@@ -104,23 +110,53 @@ namespace EvaluaTeach
                        IsRequired, MinRating, MaxRating
                 FROM SurveyQuestion WHERE EvaluationID = @formId
                 ORDER BY OrderIndex", conn);
-            cmd.Parameters.AddWithValue("@formId", formId.ToString());
+            cmd.Parameters.AddWithValue("@formId", formId);
 
+            using (var reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    questions.Add(new FormQuestion
+                    {
+                        Id = reader.GetInt32("QuestionID"),
+                        Text = reader.GetString("QuestionText"),
+                        Type = ParseQuestionType(reader.GetString("QuestionType")),
+                        OrderIndex = reader.GetInt32("OrderIndex"),
+                        IsRequired = reader.GetBoolean("IsRequired"),
+                        MinRating = reader.IsDBNull(reader.GetOrdinal("MinRating")) ? 1 : reader.GetInt32("MinRating"),
+                        MaxRating = reader.IsDBNull(reader.GetOrdinal("MaxRating")) ? 5 : reader.GetInt32("MaxRating"),
+                        Options = new List<string>()
+                    });
+                }
+            }
+
+            // Load options for multiple choice questions
+            foreach (var q in questions)
+            {
+                if (q.Type == QuestionType.MultipleChoice)
+                {
+                    q.Options = GetOptionsForQuestion(q.Id, conn);
+                }
+            }
+
+            return questions;
+        }
+
+        private static List<string> GetOptionsForQuestion(int questionId, MySqlConnection conn)
+        {
+            var options = new List<string>();
+            var cmd = new MySqlCommand(@"
+                SELECT OptionText FROM QuestionOption 
+                WHERE QuestionID = @questionId 
+                ORDER BY OrderIndex", conn);
+            cmd.Parameters.AddWithValue("@questionId", questionId);
+            
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                questions.Add(new FormQuestion
-                {
-                    Id = Guid.Parse(reader.GetString("QuestionID")),
-                    Text = reader.GetString("QuestionText"),
-                    Type = ParseQuestionType(reader.GetString("QuestionType")),
-                    OrderIndex = reader.GetInt32("OrderIndex"),
-                    IsRequired = reader.GetBoolean("IsRequired"),
-                    MinRating = reader.IsDBNull(reader.GetOrdinal("MinRating")) ? 1 : reader.GetInt32("MinRating"),
-                    MaxRating = reader.IsDBNull(reader.GetOrdinal("MaxRating")) ? 5 : reader.GetInt32("MaxRating")
-                });
+                options.Add(reader.GetString("OptionText"));
             }
-            return questions;
+            return options;
         }
 
         public static void AddForm(EvaluationForm form)
@@ -131,34 +167,51 @@ namespace EvaluaTeach
 
             try
             {
-                // Insert form
+                // Insert form (EvaluationID is AUTO_INCREMENT)
                 var cmd = new MySqlCommand(@"
-                    INSERT INTO EvaluationForm (EvaluationID, Title, Description, TargetCourse, DueDate, IsActive, CreatedBy)
-                    VALUES (@id, @title, @desc, @course, @dueDate, @isActive, @createdById)", conn, tx);
-                cmd.Parameters.AddWithValue("@id", form.Id.ToString());
+                    INSERT INTO EvaluationForm (Title, Description, TargetCourse, DueDate, IsActive, CreatedBy)
+                    VALUES (@title, @desc, @course, @dueDate, @isActive, @createdById)", conn, tx);
                 cmd.Parameters.AddWithValue("@title", form.Title);
-                cmd.Parameters.AddWithValue("@desc", form.Description ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@desc", string.IsNullOrEmpty(form.Description) ? (object)DBNull.Value : form.Description);
                 cmd.Parameters.AddWithValue("@course", form.TargetCourse ?? "All");
-                cmd.Parameters.AddWithValue("@dueDate", form.DueDate.HasValue ? form.DueDate.Value : (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@dueDate", form.DueDate.HasValue ? (object)form.DueDate.Value : DBNull.Value);
                 cmd.Parameters.AddWithValue("@isActive", form.IsActive);
-                cmd.Parameters.AddWithValue("@createdById", form.CreatedById.HasValue ? form.CreatedById.Value : (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@createdById", form.CreatedById.HasValue ? (object)form.CreatedById.Value : DBNull.Value);
                 cmd.ExecuteNonQuery();
+
+                // Get the new form ID
+                form.Id = (int)cmd.LastInsertedId;
 
                 // Insert questions
                 foreach (var q in form.Questions)
                 {
                     var qCmd = new MySqlCommand(@"
-                        INSERT INTO SurveyQuestion (QuestionID, EvaluationID, QuestionText, QuestionType, OrderIndex, IsRequired, MinRating, MaxRating)
-                        VALUES (@qid, @formId, @text, @type, @orderIdx, @isRequired, @minRating, @maxRating)", conn, tx);
-                    qCmd.Parameters.AddWithValue("@qid", q.Id.ToString());
-                    qCmd.Parameters.AddWithValue("@formId", form.Id.ToString());
+                        INSERT INTO SurveyQuestion (EvaluationID, QuestionText, QuestionType, OrderIndex, IsRequired, MinRating, MaxRating)
+                        VALUES (@formId, @text, @type, @orderIdx, @isRequired, @minRating, @maxRating)", conn, tx);
+                    qCmd.Parameters.AddWithValue("@formId", form.Id);
                     qCmd.Parameters.AddWithValue("@text", q.Text);
                     qCmd.Parameters.AddWithValue("@type", q.Type.ToString().ToLower());
                     qCmd.Parameters.AddWithValue("@orderIdx", q.OrderIndex);
                     qCmd.Parameters.AddWithValue("@isRequired", q.IsRequired);
-                    qCmd.Parameters.AddWithValue("@minRating", q.MinRating ?? (object)DBNull.Value);
-                    qCmd.Parameters.AddWithValue("@maxRating", q.MaxRating ?? (object)DBNull.Value);
+                    qCmd.Parameters.AddWithValue("@minRating", q.MinRating.HasValue ? (object)q.MinRating.Value : DBNull.Value);
+                    qCmd.Parameters.AddWithValue("@maxRating", q.MaxRating.HasValue ? (object)q.MaxRating.Value : DBNull.Value);
                     qCmd.ExecuteNonQuery();
+                    q.Id = (int)qCmd.LastInsertedId;
+
+                    // Insert options for multiple choice questions
+                    if (q.Options != null && q.Options.Count > 0)
+                    {
+                        foreach (var optionText in q.Options)
+                        {
+                            var optCmd = new MySqlCommand(@"
+                                INSERT INTO QuestionOption (QuestionID, OptionText, OrderIndex)
+                                VALUES (@questionId, @optionText, @orderIdx)", conn, tx);
+                            optCmd.Parameters.AddWithValue("@questionId", q.Id);
+                            optCmd.Parameters.AddWithValue("@optionText", optionText);
+                            optCmd.Parameters.AddWithValue("@orderIdx", q.Options.IndexOf(optionText));
+                            optCmd.ExecuteNonQuery();
+                        }
+                    }
                 }
 
                 tx.Commit();
@@ -181,25 +234,24 @@ namespace EvaluaTeach
                 SET Title = @title, Description = @desc, TargetCourse = @course, 
                     DueDate = @dueDate, IsActive = @isActive
                 WHERE EvaluationID = @id", conn);
-            cmd.Parameters.AddWithValue("@id", form.Id.ToString());
+            cmd.Parameters.AddWithValue("@id", form.Id);
             cmd.Parameters.AddWithValue("@title", form.Title);
-            cmd.Parameters.AddWithValue("@desc", form.Description ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@desc", string.IsNullOrEmpty(form.Description) ? (object)DBNull.Value : form.Description);
             cmd.Parameters.AddWithValue("@course", form.TargetCourse ?? "All");
-            cmd.Parameters.AddWithValue("@dueDate", form.DueDate.HasValue ? form.DueDate.Value : (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@dueDate", form.DueDate.HasValue ? (object)form.DueDate.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("@isActive", form.IsActive);
             cmd.ExecuteNonQuery();
 
             FormsUpdated?.Invoke();
         }
 
-        public static void DeleteForm(Guid id)
+        public static void DeleteForm(int id)
         {
             using var conn = Database.GetConnection();
             conn.Open();
 
-            // ON DELETE CASCADE will handle related questions and responses
             var cmd = new MySqlCommand("DELETE FROM EvaluationForm WHERE EvaluationID = @id", conn);
-            cmd.Parameters.AddWithValue("@id", id.ToString());
+            cmd.Parameters.AddWithValue("@id", id);
             cmd.ExecuteNonQuery();
 
             FormsUpdated?.Invoke();
@@ -215,25 +267,24 @@ namespace EvaluaTeach
 
             try
             {
-                // Create submission record
                 var subCmd = new MySqlCommand(@"
-                    INSERT INTO FormSubmission (StudentID, EvaluationID, SubmittedAt)
+                    INSERT INTO FormSubmission (StudentIDNumber, EvaluationID, SubmittedAt)
                     VALUES (@studentId, @formId, @submittedAt)", conn, tx);
                 subCmd.Parameters.AddWithValue("@studentId", response.StudentId);
-                subCmd.Parameters.AddWithValue("@formId", response.FormId.ToString());
+                subCmd.Parameters.AddWithValue("@formId", response.FormId);
                 subCmd.Parameters.AddWithValue("@submittedAt", response.SubmittedAt);
                 subCmd.ExecuteNonQuery();
 
                 var submissionId = (int)subCmd.LastInsertedId;
+                response.Id = submissionId;
 
-                // Insert individual responses
                 foreach (var answer in response.Answers)
                 {
                     var respCmd = new MySqlCommand(@"
                         INSERT INTO SurveyResponse (SubmissionID, QuestionID, Answer)
                         VALUES (@subId, @qid, @answer)", conn, tx);
                     respCmd.Parameters.AddWithValue("@subId", submissionId);
-                    respCmd.Parameters.AddWithValue("@qid", answer.Key.ToString());
+                    respCmd.Parameters.AddWithValue("@qid", answer.Key);
                     respCmd.Parameters.AddWithValue("@answer", answer.Value);
                     respCmd.ExecuteNonQuery();
                 }
@@ -248,35 +299,33 @@ namespace EvaluaTeach
             }
         }
 
-        public static List<FormResponse> GetResponsesForForm(Guid formId)
+        public static List<FormResponse> GetResponsesForForm(int formId)
         {
             var responses = new List<FormResponse>();
             using var conn = Database.GetConnection();
             conn.Open();
 
             var cmd = new MySqlCommand(@"
-                SELECT fs.SubmissionID, fs.StudentID, fs.EvaluationID, fs.SubmittedAt
-                FROM FormSubmission fs
-                WHERE fs.EvaluationID = @formId", conn);
-            cmd.Parameters.AddWithValue("@formId", formId.ToString());
+                SELECT SubmissionID, StudentIDNumber, EvaluationID, SubmittedAt
+                FROM FormSubmission
+                WHERE EvaluationID = @formId", conn);
+            cmd.Parameters.AddWithValue("@formId", formId);
 
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            using (var reader = cmd.ExecuteReader())
             {
-                var submissionId = reader.GetInt32("SubmissionID");
-                var response = new FormResponse
+                while (reader.Read())
                 {
-                    Id = Guid.NewGuid(),
-                    FormId = Guid.Parse(reader.GetString("EvaluationID")),
-                    StudentId = reader.GetString("StudentID"),
-                    SubmittedAt = reader.GetDateTime("SubmittedAt"),
-                    Answers = new Dictionary<Guid, string>()
-                };
-                responses.Add(response);
+                    responses.Add(new FormResponse
+                    {
+                        Id = reader.GetInt32("SubmissionID"),
+                        FormId = reader.GetInt32("EvaluationID"),
+                        StudentId = reader.GetString("StudentIDNumber"),
+                        SubmittedAt = reader.GetDateTime("SubmittedAt"),
+                        Answers = new Dictionary<int, string>()
+                    });
+                }
             }
-            reader.Close();
 
-            // Load answers for each response
             foreach (var response in responses)
             {
                 response.Answers = GetAnswersForSubmission(response.Id, conn);
@@ -285,21 +334,20 @@ namespace EvaluaTeach
             return responses;
         }
 
-        private static Dictionary<Guid, string> GetAnswersForSubmission(Guid submissionId, MySqlConnection conn)
+        private static Dictionary<int, string> GetAnswersForSubmission(int submissionId, MySqlConnection conn)
         {
-            var answers = new Dictionary<Guid, string>();
+            var answers = new Dictionary<int, string>();
             var cmd = new MySqlCommand(@"
                 SELECT QuestionID, Answer
-                FROM SurveyResponse sr
-                JOIN FormSubmission fs ON sr.SubmissionID = fs.SubmissionID
-                WHERE fs.EvaluationID = @subId", conn);
-            cmd.Parameters.AddWithValue("@subId", submissionId.ToString());
+                FROM SurveyResponse
+                WHERE SubmissionID = @subId", conn);
+            cmd.Parameters.AddWithValue("@subId", submissionId);
 
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                var qid = Guid.Parse(reader.GetString("QuestionID"));
-                var answer = reader.GetString("Answer");
+                var qid = reader.GetInt32("QuestionID");
+                var answer = reader.IsDBNull(reader.GetOrdinal("Answer")) ? "" : reader.GetString("Answer");
                 answers[qid] = answer;
             }
             return answers;
@@ -312,9 +360,9 @@ namespace EvaluaTeach
             conn.Open();
 
             var cmd = new MySqlCommand(@"
-                SELECT fs.SubmissionID, fs.EvaluationID, fs.SubmittedAt
-                FROM FormSubmission fs
-                WHERE fs.StudentID = @studentId", conn);
+                SELECT SubmissionID, EvaluationID, SubmittedAt
+                FROM FormSubmission
+                WHERE StudentIDNumber = @studentId", conn);
             cmd.Parameters.AddWithValue("@studentId", studentId);
 
             using var reader = cmd.ExecuteReader();
@@ -322,39 +370,39 @@ namespace EvaluaTeach
             {
                 responses.Add(new FormResponse
                 {
-                    Id = Guid.NewGuid(),
-                    FormId = Guid.Parse(reader.GetString("EvaluationID")),
+                    Id = reader.GetInt32("SubmissionID"),
+                    FormId = reader.GetInt32("EvaluationID"),
                     StudentId = studentId,
                     SubmittedAt = reader.GetDateTime("SubmittedAt"),
-                    Answers = new Dictionary<Guid, string>()
+                    Answers = new Dictionary<int, string>()
                 });
             }
             return responses;
         }
 
-        public static bool HasStudentSubmitted(Guid formId, string studentId)
+        public static bool HasStudentSubmitted(int formId, string studentId)
         {
             using var conn = Database.GetConnection();
             conn.Open();
 
             var cmd = new MySqlCommand(@"
                 SELECT COUNT(*) FROM FormSubmission 
-                WHERE EvaluationID = @formId AND StudentID = @studentId", conn);
-            cmd.Parameters.AddWithValue("@formId", formId.ToString());
+                WHERE EvaluationID = @formId AND StudentIDNumber = @studentId", conn);
+            cmd.Parameters.AddWithValue("@formId", formId);
             cmd.Parameters.AddWithValue("@studentId", studentId);
 
             var count = Convert.ToInt32(cmd.ExecuteScalar());
             return count > 0;
         }
 
-        public static int GetSubmissionCount(Guid formId)
+        public static int GetSubmissionCount(int formId)
         {
             using var conn = Database.GetConnection();
             conn.Open();
 
-            var cmd = new MySqlCommand(@"
-                SELECT COUNT(*) FROM FormSubmission WHERE EvaluationID = @formId", conn);
-            cmd.Parameters.AddWithValue("@formId", formId.ToString());
+            var cmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM FormSubmission WHERE EvaluationID = @formId", conn);
+            cmd.Parameters.AddWithValue("@formId", formId);
 
             return Convert.ToInt32(cmd.ExecuteScalar());
         }
@@ -374,7 +422,6 @@ namespace EvaluaTeach
 
         public static void SeedSampleData()
         {
-            // Check if data already exists
             using var conn = Database.GetConnection();
             conn.Open();
 
@@ -382,56 +429,26 @@ namespace EvaluaTeach
             var count = Convert.ToInt32(cmd.ExecuteScalar());
             if (count > 0) return;
 
+            // Get default admin ID
+            var adminCmd = new MySqlCommand("SELECT AdminID FROM Admin LIMIT 1", conn);
+            var adminResult = adminCmd.ExecuteScalar();
+            int? adminId = adminResult != null ? Convert.ToInt32(adminResult) : null;
+
             var sampleForm = new EvaluationForm
             {
-                Id = Guid.NewGuid(),
                 Title = "Teacher Performance Evaluation",
                 Description = "Please evaluate your teacher's performance this semester",
                 TargetCourse = "BSIT",
                 CreatedAt = DateTime.Now,
                 DueDate = DateTime.Now.AddDays(14),
                 IsActive = true,
-                CreatedBy = "Admin",
+                CreatedById = adminId,
                 Questions = new List<FormQuestion>
                 {
-                    new()
-                    {
-                        Id = Guid.NewGuid(),
-                        Text = "Knowledge of the subject matter",
-                        Type = QuestionType.Rating,
-                        IsRequired = true,
-                        MinRating = 1,
-                        MaxRating = 5,
-                        OrderIndex = 0
-                    },
-                    new()
-                    {
-                        Id = Guid.NewGuid(),
-                        Text = "Teaching methodology and presentation skills",
-                        Type = QuestionType.Rating,
-                        IsRequired = true,
-                        MinRating = 1,
-                        MaxRating = 5,
-                        OrderIndex = 1
-                    },
-                    new()
-                    {
-                        Id = Guid.NewGuid(),
-                        Text = "Classroom management and discipline",
-                        Type = QuestionType.Rating,
-                        IsRequired = true,
-                        MinRating = 1,
-                        MaxRating = 5,
-                        OrderIndex = 2
-                    },
-                    new()
-                    {
-                        Id = Guid.NewGuid(),
-                        Text = "Additional comments or suggestions",
-                        Type = QuestionType.Text,
-                        IsRequired = false,
-                        OrderIndex = 3
-                    }
+                    new() { Text = "Knowledge of the subject matter", Type = QuestionType.Rating, IsRequired = true, MinRating = 1, MaxRating = 5, OrderIndex = 0 },
+                    new() { Text = "Teaching methodology and presentation skills", Type = QuestionType.Rating, IsRequired = true, MinRating = 1, MaxRating = 5, OrderIndex = 1 },
+                    new() { Text = "Classroom management and discipline", Type = QuestionType.Rating, IsRequired = true, MinRating = 1, MaxRating = 5, OrderIndex = 2 },
+                    new() { Text = "Additional comments or suggestions", Type = QuestionType.Text, IsRequired = false, OrderIndex = 3 }
                 }
             };
 
@@ -439,4 +456,3 @@ namespace EvaluaTeach
         }
     }
 }
-

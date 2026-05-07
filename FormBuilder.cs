@@ -533,6 +533,11 @@ namespace EvaluaTeach
             form.Questions = questions.OrderBy(q => q.OrderIndex).ToList();
             form.IsActive = true;
 
+            // DEBUG: Show what we're about to save
+            string debugInfo = string.Join("\n", form.Questions.Select(q => 
+                $"{q.Type}: {q.Text} - Options: {(q.Options?.Count ?? 0)} [{string.Join(", ", q.Options ?? new List<string>())}]"));
+            MessageBox.Show(debugInfo, "DEBUG: Questions to Save", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
             if (editingForm == null)
             {
                 form.CreatedBy = SessionStore.UserName;

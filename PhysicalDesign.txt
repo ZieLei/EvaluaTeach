@@ -122,12 +122,12 @@ CREATE TABLE QuestionOption (
 -- Form Submissions (tracks which student completed which form)
 CREATE TABLE FormSubmission (
     SubmissionID INT AUTO_INCREMENT PRIMARY KEY,
-    StudentID INT,
+    StudentIDNumber VARCHAR(50),
     EvaluationID INT,
     SubmittedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (StudentID) REFERENCES Student(StudentID),
+    FOREIGN KEY (StudentIDNumber) REFERENCES Student(IDNumber),
     FOREIGN KEY (EvaluationID) REFERENCES EvaluationForm(EvaluationID),
-    UNIQUE KEY unique_submission (StudentID, EvaluationID)
+    UNIQUE KEY unique_submission (StudentIDNumber, EvaluationID)
 ); 
 
   

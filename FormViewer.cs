@@ -11,7 +11,7 @@ namespace EvaluaTeach
         private void InitializeComponent() { }
 
         private readonly EvaluationForm form;
-        private readonly Dictionary<Guid, Control> answerControls = new();
+        private readonly Dictionary<int, Control> answerControls = new();
         private readonly FlowLayoutPanel questionsPanel = new();
         private Label progressLabel = null!;
 
@@ -485,7 +485,7 @@ namespace EvaluaTeach
         private void SubmitForm(object? sender, EventArgs e)
         {
             var missingRequired = new List<string>();
-            var answers = new Dictionary<Guid, string>();
+            var answers = new Dictionary<int, string>();
 
             foreach (var question in form.Questions)
             {
