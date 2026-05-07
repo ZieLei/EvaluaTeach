@@ -30,11 +30,13 @@ namespace EvaluaTeach
         public string Description { get; set; } = string.Empty;
         public string TargetTeacher { get; set; } = string.Empty;
         public string TargetDepartment { get; set; } = string.Empty;
+        public string TargetCourse { get; set; } = "All";
         public List<FormQuestion> Questions { get; set; } = new();
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? DueDate { get; set; }
         public bool IsActive { get; set; } = true;
         public string CreatedBy { get; set; } = string.Empty;
+        public int? CreatedById { get; set; }  // Foreign key to Admin table
     }
 
     public class FormResponse

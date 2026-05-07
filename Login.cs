@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Security.Cryptography;
 using System.Text;
 using System.Windows.Forms;
+using MySql.Data.MySqlClient;
 
 namespace EvaluaTeach
 {
@@ -256,25 +258,148 @@ namespace EvaluaTeach
             }
 
             bool isAdmin = roleSelector.SelectedIndex == 1;
-            UserRole role = isAdmin ? UserRole.Admin : UserRole.Student;
 
-            string name = isAdmin ? "Administrator" : userId;
-            string email = isAdmin ? "admin@evalu teach.edu" : $"{userId}@student.edu";
-            string meta = isAdmin ? "Administrator" : "Student BSIT";
+            try
+            {
+                // Ensure default users exist
+                EnsureDefaultUsers();
 
-            SessionStore.Login(userId, name, email, role);
-            ProfileStore.UpdateProfile(name, meta, email, userId);
+                // Authenticate against database
+                var (isValid, numericId, name, email, course) = AuthenticateUser(userId, password, isAdmin);
 
-            FormDataStore.SeedSampleData();
+                if (!isValid)
+                {
+                    MessageBox.Show("Invalid ID or password.", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                UserRole role = isAdmin ? UserRole.Admin : UserRole.Student;
+                string meta = isAdmin ? "Administrator" : $"Student {course}";
+
+                SessionStore.Login(userId, numericId, name, email, role);
+                ProfileStore.UpdateProfile(name, meta, email, userId);
+
+                FormDataStore.SeedSampleData();
+
+                if (isAdmin)
+                {
+                    Program.NavigateTo(new AdminHome());
+                }
+                else
+                {
+                    Program.NavigateTo(new Home());
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Login error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private static string HashPassword(string password)
+        {
+            using var sha256 = SHA256.Create();
+            var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+            return Convert.ToBase64String(bytes);
+        }
+
+        private void EnsureDefaultUsers()
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            // Check if admin exists
+            var adminCmd = new MySqlCommand("SELECT COUNT(*) FROM Admin WHERE Email = 'admin@evaluateach.edu'", conn);
+            var adminCount = Convert.ToInt32(adminCmd.ExecuteScalar());
+
+            if (adminCount == 0)
+            {
+                // Create default admin
+                var insertAdmin = new MySqlCommand(@"
+                    INSERT INTO Admin (FirstName, LastName, Email, AccessLevel, Password)
+                    VALUES ('System', 'Admin', 'admin@evaluateach.edu', 'SuperAdmin', @password)", conn);
+                insertAdmin.Parameters.AddWithValue("@password", HashPassword("admin123"));
+                insertAdmin.ExecuteNonQuery();
+            }
+
+            // Check if student exists
+            var studentCmd = new MySqlCommand("SELECT COUNT(*) FROM Student WHERE IDNumber = '2024-000001'", conn);
+            var studentCount = Convert.ToInt32(studentCmd.ExecuteScalar());
+
+            if (studentCount == 0)
+            {
+                // Create default student
+                var insertStudent = new MySqlCommand(@"
+                    INSERT INTO Student (IDNumber, FirstName, LastName, Email, Course, YearLevel, Password)
+                    VALUES ('2024-000001', 'Juan', 'Dela Cruz', 'juan@student.edu', 'BSIT', 2, @password)", conn);
+                insertStudent.Parameters.AddWithValue("@password", HashPassword("student123"));
+                insertStudent.ExecuteNonQuery();
+            }
+
+            // Create another test student for BSCS
+            var studentCmd2 = new MySqlCommand("SELECT COUNT(*) FROM Student WHERE IDNumber = '2024-000002'", conn);
+            var studentCount2 = Convert.ToInt32(studentCmd2.ExecuteScalar());
+
+            if (studentCount2 == 0)
+            {
+                var insertStudent2 = new MySqlCommand(@"
+                    INSERT INTO Student (IDNumber, FirstName, LastName, Email, Course, YearLevel, Password)
+                    VALUES ('2024-000002', 'Maria', 'Santos', 'maria@student.edu', 'BSCS', 3, @password)", conn);
+                insertStudent2.Parameters.AddWithValue("@password", HashPassword("student123"));
+                insertStudent2.ExecuteNonQuery();
+            }
+        }
+
+        private (bool isValid, int? numericId, string name, string email, string course) AuthenticateUser(string userId, string password, bool isAdmin)
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            string hashedPassword = HashPassword(password);
 
             if (isAdmin)
             {
-                Program.NavigateTo(new AdminHome());
+                // Try to find admin by AdminID or Email
+                var cmd = new MySqlCommand(@"
+                    SELECT AdminID, FirstName, LastName, Email
+                    FROM Admin
+                    WHERE (AdminID = @id OR Email = @id) AND Password = @password
+                    LIMIT 1", conn);
+                cmd.Parameters.AddWithValue("@id", userId);
+                cmd.Parameters.AddWithValue("@password", hashedPassword);
+
+                using var reader = cmd.ExecuteReader();
+                if (reader.Read())
+                {
+                    int adminId = reader.GetInt32("AdminID");
+                    string name = $"{reader.GetString("FirstName")} {reader.GetString("LastName")}";
+                    string email = reader.GetString("Email");
+                    return (true, adminId, name, email, "");
+                }
             }
             else
             {
-                Program.NavigateTo(new Home());
+                // Try to find student by IDNumber
+                var cmd = new MySqlCommand(@"
+                    SELECT StudentID, FirstName, LastName, Email, Course
+                    FROM Student
+                    WHERE IDNumber = @id AND Password = @password
+                    LIMIT 1", conn);
+                cmd.Parameters.AddWithValue("@id", userId);
+                cmd.Parameters.AddWithValue("@password", hashedPassword);
+
+                using var reader = cmd.ExecuteReader();
+                if (reader.Read())
+                {
+                    int studentId = reader.GetInt32("StudentID");
+                    string name = $"{reader.GetString("FirstName")} {reader.GetString("LastName")}";
+                    string email = reader.GetString("Email");
+                    string course = reader.GetString("Course");
+                    return (true, studentId, name, email, course);
+                }
             }
+
+            return (false, null, "", "", "");
         }
     }
 }

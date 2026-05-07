@@ -287,7 +287,7 @@ namespace EvaluaTeach
 
             var meta = new Label
             {
-                Text = $"{form.Questions.Count} questions | Target: {form.TargetDepartment ?? "All"} | Created: {form.CreatedAt:MMM dd, yyyy}",
+                Text = $"{form.Questions.Count} questions | Target: {(!string.IsNullOrWhiteSpace(form.TargetCourse) ? form.TargetCourse : "All")} | Created: {form.CreatedAt:MMM dd, yyyy}",
                 Font = new Font("Inter", 9F),
                 ForeColor = Color.FromArgb(148, 163, 184),
                 AutoSize = true,
@@ -594,7 +594,7 @@ namespace EvaluaTeach
             var lines = new List<string>
             {
                 $"Teacher: {(string.IsNullOrWhiteSpace(form.TargetTeacher) ? "Assigned Teacher" : form.TargetTeacher)}",
-                $"Department: {(string.IsNullOrWhiteSpace(form.TargetDepartment) ? "All" : form.TargetDepartment)}",
+                $"Department: {(!string.IsNullOrWhiteSpace(form.TargetCourse) ? form.TargetCourse : "All")}",
                 "------------------------------"
             };
 

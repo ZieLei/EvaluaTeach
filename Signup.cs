@@ -255,7 +255,7 @@ namespace EvaluaTeach
             }
 
             string meta = $"Student {program}";
-            SessionStore.Login(studentId, fullName, email, UserRole.Student);
+            SessionStore.Login(studentId, null, fullName, email, UserRole.Student);
             ProfileStore.UpdateProfile(fullName, meta, email, studentId);
 
             FormDataStore.SeedSampleData();

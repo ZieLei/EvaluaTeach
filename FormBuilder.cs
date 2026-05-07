@@ -16,6 +16,8 @@ namespace EvaluaTeach
         private readonly TextBox titleInput = new();
         private readonly TextBox descriptionInput = new();
         private readonly TextBox departmentInput = new();
+        private readonly ComboBox courseSelector = new();
+        private readonly DateTimePicker dueDatePicker = new();
         private readonly ComboBox typeSelector = new();
 
         public event Action? FormSaved;
@@ -138,7 +140,7 @@ namespace EvaluaTeach
             {
                 BackColor = Color.White,
                 Location = new Point(24, 24),
-                Size = new Size(parent.Width - 48, 200),
+                Size = new Size(parent.Width - 48, 280),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 Padding = new Padding(24)
             };
@@ -184,11 +186,48 @@ namespace EvaluaTeach
             descriptionInput.BorderStyle = BorderStyle.FixedSingle;
             descriptionInput.BackColor = Color.FromArgb(248, 250, 252);
 
+            var courseLabel = new Label
+            {
+                Text = "Target Course *",
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(24, 190)
+            };
+
+            courseSelector.Location = new Point(24, 213);
+            courseSelector.Size = new Size(200, 32);
+            courseSelector.Font = new Font("Inter", 11F);
+            courseSelector.DropDownStyle = ComboBoxStyle.DropDownList;
+            courseSelector.Items.AddRange(new[] { "All", "BSIT", "BSCS", "BSCE", "BSEE", "BSME", "BSN", "BSA", "BSBA" });
+            courseSelector.SelectedIndex = 0;
+
+            var dueDateLabel = new Label
+            {
+                Text = "Due Date",
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(250, 190)
+            };
+
+            dueDatePicker.Location = new Point(250, 213);
+            dueDatePicker.Size = new Size(150, 32);
+            dueDatePicker.Font = new Font("Inter", 11F);
+            dueDatePicker.Format = DateTimePickerFormat.Short;
+            dueDatePicker.MinDate = DateTime.Today;
+            dueDatePicker.ShowCheckBox = true;
+            dueDatePicker.Checked = false;
+
             section.Controls.Add(sectionTitle);
             section.Controls.Add(titleLabel);
             section.Controls.Add(titleInput);
             section.Controls.Add(descLabel);
             section.Controls.Add(descriptionInput);
+            section.Controls.Add(courseLabel);
+            section.Controls.Add(courseSelector);
+            section.Controls.Add(dueDateLabel);
+            section.Controls.Add(dueDatePicker);
 
             parent.Controls.Add(section);
         }
@@ -198,7 +237,7 @@ namespace EvaluaTeach
             var section = new Panel
             {
                 BackColor = Color.White,
-                Location = new Point(24, 248),
+                Location = new Point(24, 328),
                 Size = new Size(parent.Width - 48, parent.Height - 280),
                 Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 Padding = new Padding(24)
@@ -270,6 +309,19 @@ namespace EvaluaTeach
             titleInput.Text = editingForm.Title;
             descriptionInput.Text = editingForm.Description;
             departmentInput.Text = editingForm.TargetDepartment;
+
+            if (!string.IsNullOrEmpty(editingForm.TargetCourse))
+            {
+                int courseIndex = courseSelector.Items.IndexOf(editingForm.TargetCourse);
+                if (courseIndex >= 0)
+                    courseSelector.SelectedIndex = courseIndex;
+            }
+
+            if (editingForm.DueDate.HasValue)
+            {
+                dueDatePicker.Value = editingForm.DueDate.Value;
+                dueDatePicker.Checked = true;
+            }
         }
 
         private void AddQuestion(object? sender, EventArgs e)
@@ -476,12 +528,15 @@ namespace EvaluaTeach
             form.Title = titleInput.Text.Trim();
             form.Description = descriptionInput.Text.Trim();
             form.TargetDepartment = departmentInput.Text.Trim();
+            form.TargetCourse = courseSelector.SelectedItem?.ToString() ?? "All";
+            form.DueDate = dueDatePicker.Checked ? dueDatePicker.Value : null;
             form.Questions = questions.OrderBy(q => q.OrderIndex).ToList();
             form.IsActive = true;
 
             if (editingForm == null)
             {
                 form.CreatedBy = SessionStore.UserName;
+                form.CreatedById = SessionStore.UserIdNumeric;  // Set the foreign key
                 FormDataStore.AddForm(form);
             }
             else

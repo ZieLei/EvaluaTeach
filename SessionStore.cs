@@ -11,6 +11,7 @@ namespace EvaluaTeach
     public static class SessionStore
     {
         public static string UserId { get; private set; } = string.Empty;
+        public static int? UserIdNumeric { get; private set; } = null;  // Database AdminID or StudentID
         public static string UserName { get; private set; } = string.Empty;
         public static string Email { get; private set; } = string.Empty;
         public static UserRole Role { get; private set; } = UserRole.Student;
@@ -18,9 +19,10 @@ namespace EvaluaTeach
 
         public static event Action? SessionUpdated;
 
-        public static void Login(string userId, string userName, string email, UserRole role)
+        public static void Login(string userId, int? userIdNumeric, string userName, string email, UserRole role)
         {
             UserId = userId;
+            UserIdNumeric = userIdNumeric;
             UserName = userName;
             Email = email;
             Role = role;
