@@ -21,18 +21,6 @@ namespace EvaluaTeach
         private readonly Panel listContainer = new();
         private readonly Panel notificationsContainer = new();
         private readonly Label notificationsSubtitle = new();
-        private readonly Panel notificationCard1 = new();
-        private readonly Panel notificationCard2 = new();
-        private readonly Panel notificationCard3 = new();
-        private readonly Label notificationTitle1 = new();
-        private readonly Label notificationTitle2 = new();
-        private readonly Label notificationTitle3 = new();
-        private readonly Label notificationBody1 = new();
-        private readonly Label notificationBody2 = new();
-        private readonly Label notificationBody3 = new();
-        private readonly Label notificationTime1 = new();
-        private readonly Label notificationTime2 = new();
-        private readonly Label notificationTime3 = new();
         private bool dashboardLayoutInitialized;
         private bool showingNotifications;
         private bool applyingViewState;
@@ -197,6 +185,10 @@ namespace EvaluaTeach
                 return;
             }
             UpdateMetrics();
+            if (showingNotifications)
+            {
+                LoadNotifications();
+            }
         }
 
         private void UpdateMetrics()
@@ -306,76 +298,352 @@ namespace EvaluaTeach
             notificationsSubtitle.AutoSize = true;
             notificationsSubtitle.Font = new Font("Inter", 10F, FontStyle.Regular);
             notificationsSubtitle.ForeColor = Color.FromArgb(100, 116, 139);
-            notificationsSubtitle.Text = "Stay updated with teacher reminders, submission activity, and schedule changes.";
+            notificationsSubtitle.Text = "Stay updated with pending evaluations and new forms from your department.";
 
             notificationsContainer.BackColor = Color.Transparent;
             notificationsContainer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             notificationsContainer.AutoScroll = true;
 
-            ConfigureNotificationCard(
-                notificationCard1,
-                notificationTitle1,
-                notificationBody1,
-                notificationTime1,
-                "You still have 4 pending evaluations",
-                "Complete your remaining teacher evaluations before the submission period ends.",
-                "5 minutes ago");
-
-            ConfigureNotificationCard(
-                notificationCard2,
-                notificationTitle2,
-                notificationBody2,
-                notificationTime2,
-                "New teacher schedule was posted",
-                "A new evaluation schedule is now available for your current department and year level.",
-                "Today, 1:30 PM");
-
-            ConfigureNotificationCard(
-                notificationCard3,
-                notificationTitle3,
-                notificationBody3,
-                notificationTime3,
-                "Thank you for your last submission",
-                "Your evaluation for John Doe was recorded successfully and marked complete.",
-                "Yesterday, 3:12 PM");
-
             if (!panel1.Controls.Contains(notificationsSubtitle))
             {
                 panel1.Controls.Add(notificationsSubtitle);
                 panel1.Controls.Add(notificationsContainer);
-                notificationsContainer.Controls.Add(notificationCard1);
-                notificationsContainer.Controls.Add(notificationCard2);
-                notificationsContainer.Controls.Add(notificationCard3);
             }
         }
 
-        private void ConfigureNotificationCard(Panel panel, Label title, Label body, Label time, string titleText, string bodyText, string timeText)
+        private void LoadNotifications()
         {
-            panel.BackColor = Color.White;
-            panel.Padding = new Padding(24);
-            panel.BorderStyle = BorderStyle.FixedSingle;
+            notificationsContainer.Controls.Clear();
 
-            title.AutoSize = true;
-            title.Font = new Font("Inter", 12F, FontStyle.Bold);
-            title.ForeColor = Color.FromArgb(15, 23, 42);
-            title.Text = titleText;
+            var department = ProfileStore.Meta.Replace("Student ", "").Trim();
+            var studentId = string.IsNullOrWhiteSpace(SessionStore.UserId)
+                ? ProfileStore.StudentId
+                : SessionStore.UserId;
 
-            body.AutoSize = true;
-            body.Font = new Font("Inter", 10F, FontStyle.Regular);
-            body.ForeColor = Color.FromArgb(71, 85, 105);
-            body.Text = bodyText;
+            var forms = FormDataStore.GetFormsForStudent(department);
+            var pending = forms.Where(f => !FormDataStore.HasStudentSubmitted(f.Id, studentId)).ToList();
+            var completed = forms.Where(f => FormDataStore.HasStudentSubmitted(f.Id, studentId)).ToList();
 
-            time.AutoSize = true;
-            time.Font = new Font("Inter SemiBold", 9F, FontStyle.Bold);
-            time.ForeColor = Color.FromArgb(100, 116, 139);
-            time.Text = timeText;
+            int yOffset = 0;
 
-            if (!panel.Controls.Contains(title))
+            if (pending.Count > 0)
             {
-                panel.Controls.Add(title);
-                panel.Controls.Add(body);
-                panel.Controls.Add(time);
+                var pendingCard = BuildPendingCard(pending, notificationsContainer.Width);
+                pendingCard.Location = new Point(0, yOffset);
+                notificationsContainer.Controls.Add(pendingCard);
+                yOffset += pendingCard.Height + 16;
             }
+
+            var otherNotifications = new List<(string Title, string Body, string Time, Color Accent)>();
+
+            foreach (var form in forms.OrderByDescending(f => f.CreatedAt).Take(5))
+            {
+                bool isNew = (DateTime.Now - form.CreatedAt).TotalDays <= 3;
+                string timeStr = FormatRelativeTime(form.CreatedAt);
+                string dueStr = form.DueDate.HasValue
+                    ? $" Due: {form.DueDate.Value:MMM dd, yyyy}."
+                    : string.Empty;
+                string courseStr = form.TargetCourse == "All" ? "all departments" : form.TargetCourse;
+                otherNotifications.Add((
+                    (isNew ? "New form: " : "Form: ") + form.Title,
+                    $"An evaluation form targeting {courseStr} is now available.{dueStr}",
+                    timeStr,
+                    isNew ? Color.FromArgb(37, 99, 235) : Color.FromArgb(100, 116, 139)));
+            }
+
+            foreach (var sub in completed.OrderByDescending(f => f.CreatedAt).Take(3))
+            {
+                var responses = FormDataStore.GetResponsesByStudent(studentId);
+                var match = responses.FirstOrDefault(r => r.FormId == sub.Id);
+                string timeStr = match != null ? FormatRelativeTime(match.SubmittedAt) : "Recently";
+                otherNotifications.Add((
+                    $"Submitted: {sub.Title}",
+                    "Your evaluation was recorded successfully.",
+                    timeStr,
+                    Color.FromArgb(22, 163, 74)));
+            }
+
+            if (pending.Count == 0 && otherNotifications.Count == 0)
+            {
+                var emptyLabel = new Label
+                {
+                    Text = "No notifications yet. Check back after new forms are published.",
+                    Font = new Font("Inter", 11F),
+                    ForeColor = Color.FromArgb(148, 163, 184),
+                    AutoSize = true,
+                    Location = new Point(0, 16)
+                };
+                notificationsContainer.Controls.Add(emptyLabel);
+                return;
+            }
+
+            foreach (var (title, body, time, accent) in otherNotifications)
+            {
+                var card = BuildNotificationCard(title, body, time, accent, notificationsContainer.Width);
+                card.Location = new Point(0, yOffset);
+                notificationsContainer.Controls.Add(card);
+                yOffset += card.Height + 16;
+            }
+        }
+
+        private Panel BuildPendingCard(List<EvaluationForm> pendingForms, int containerWidth)
+        {
+            bool expandable = pendingForms.Count > 1;
+            string formWord = pendingForms.Count == 1 ? "evaluation" : "evaluations";
+            string dueInfo = pendingForms
+                .Where(f => f.DueDate.HasValue)
+                .OrderBy(f => f.DueDate)
+                .Select(f => $" Nearest due: {f.DueDate!.Value:MMM dd, yyyy}.")
+                .FirstOrDefault() ?? string.Empty;
+
+            int collapsedHeight = 118;
+            var accentColor = Color.FromArgb(234, 88, 12);
+
+            var card = new Panel
+            {
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                Size = new Size(Math.Max(300, containerWidth), collapsedHeight),
+                Padding = new Padding(24)
+            };
+
+            var accent = new Panel
+            {
+                BackColor = accentColor,
+                Size = new Size(4, card.Height),
+                Location = new Point(0, 0),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left
+            };
+
+            var title = new Label
+            {
+                Text = $"You have {pendingForms.Count} pending {formWord}",
+                Font = new Font("Inter", 12F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(24, 20)
+            };
+
+            var body = new Label
+            {
+                Text = $"Complete your teacher evaluations before the deadline.{dueInfo}",
+                Font = new Font("Inter", 10F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                AutoSize = true,
+                MaximumSize = new Size(Math.Max(200, card.Width - 72), 0),
+                Location = new Point(24, 50)
+            };
+
+            var time = new Label
+            {
+                Text = "Just now",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                AutoSize = true,
+                Location = new Point(24, 82)
+            };
+
+            card.Controls.Add(accent);
+            card.Controls.Add(title);
+            card.Controls.Add(body);
+            card.Controls.Add(time);
+
+            if (!expandable)
+            {
+                card.Resize += (_, _) =>
+                {
+                    accent.Height = card.Height;
+                    body.MaximumSize = new Size(Math.Max(200, card.Width - 72), 0);
+                    time.Location = new Point(24, body.Bottom + 8);
+                    card.Height = Math.Max(collapsedHeight, time.Bottom + 20);
+                };
+                return card;
+            }
+
+            bool expanded = false;
+
+            var toggleBtn = new Button
+            {
+                Text = "\u25B6  Show details",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = accentColor,
+                BackColor = Color.Transparent,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0, MouseOverBackColor = Color.Transparent, MouseDownBackColor = Color.Transparent },
+                AutoSize = true,
+                Location = new Point(22, 94)
+            };
+            card.Controls.Add(toggleBtn);
+            card.Height = collapsedHeight + toggleBtn.Height + 4;
+
+            var detailsPanel = new Panel
+            {
+                BackColor = Color.FromArgb(255, 247, 237),
+                Visible = false,
+                Width = card.Width - 8,
+                Location = new Point(4, card.Height)
+            };
+            card.Controls.Add(detailsPanel);
+
+            int rowH = 0;
+            foreach (var f in pendingForms)
+            {
+                var row = new Panel
+                {
+                    BackColor = Color.Transparent,
+                    Width = detailsPanel.Width,
+                    Height = 56,
+                    Location = new Point(0, rowH)
+                };
+
+                var dot = new Panel
+                {
+                    BackColor = accentColor,
+                    Size = new Size(8, 8),
+                    Location = new Point(16, 24)
+                };
+
+                var rowTitle = new Label
+                {
+                    Text = f.Title,
+                    Font = new Font("Inter", 10F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(15, 23, 42),
+                    AutoSize = true,
+                    Location = new Point(34, 10)
+                };
+
+                string descText = string.Empty;
+                if (!string.IsNullOrWhiteSpace(f.Description))
+                    descText += f.Description;
+                if (f.DueDate.HasValue)
+                    descText += (descText.Length > 0 ? "  \u2022  " : "") + $"Due: {f.DueDate.Value:MMM dd, yyyy}";
+                if (string.IsNullOrEmpty(descText))
+                    descText = "No due date set";
+
+                var rowDesc = new Label
+                {
+                    Text = descText,
+                    Font = new Font("Inter", 9F),
+                    ForeColor = Color.FromArgb(100, 116, 139),
+                    AutoSize = true,
+                    MaximumSize = new Size(detailsPanel.Width - 50, 0),
+                    Location = new Point(34, rowTitle.Bottom + 2)
+                };
+
+                row.Controls.Add(dot);
+                row.Controls.Add(rowTitle);
+                row.Controls.Add(rowDesc);
+
+                row.Height = Math.Max(56, rowDesc.Bottom + 12);
+                dot.Location = new Point(16, row.Height / 2 - 4);
+
+                detailsPanel.Controls.Add(row);
+                rowH += row.Height;
+            }
+            detailsPanel.Height = rowH + 8;
+
+            void RefreshLayout()
+            {
+                accent.Height = card.Height;
+                body.MaximumSize = new Size(Math.Max(200, card.Width - 72), 0);
+                time.Location = new Point(24, body.Bottom + 8);
+                int baseHeight = Math.Max(collapsedHeight, time.Bottom + 20);
+                toggleBtn.Location = new Point(22, baseHeight - 24);
+                detailsPanel.Width = card.Width - 8;
+                detailsPanel.Location = new Point(4, baseHeight + 4);
+                foreach (Panel row in detailsPanel.Controls.OfType<Panel>())
+                    foreach (Label lbl in row.Controls.OfType<Label>().Where(l => l.AutoSize && l.MaximumSize.Width > 0))
+                        lbl.MaximumSize = new Size(detailsPanel.Width - 50, 0);
+                card.Height = expanded
+                    ? baseHeight + 4 + detailsPanel.Height + 8
+                    : baseHeight + toggleBtn.Height + 4;
+            }
+
+            toggleBtn.Click += (_, _) =>
+            {
+                expanded = !expanded;
+                detailsPanel.Visible = expanded;
+                toggleBtn.Text = expanded ? "\u25BC  Hide details" : "\u25B6  Show details";
+                RefreshLayout();
+                LayoutNotificationCards(notificationsContainer.Width);
+            };
+
+            card.Resize += (_, _) => RefreshLayout();
+
+            RefreshLayout();
+            return card;
+        }
+
+        private Panel BuildNotificationCard(string titleText, string bodyText, string timeText, Color accentColor, int containerWidth)
+        {
+            var card = new Panel
+            {
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                Size = new Size(Math.Max(300, containerWidth), 118),
+                Padding = new Padding(24)
+            };
+
+            var accent = new Panel
+            {
+                BackColor = accentColor,
+                Size = new Size(4, card.Height),
+                Location = new Point(0, 0),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left
+            };
+
+            var title = new Label
+            {
+                Text = titleText,
+                Font = new Font("Inter", 12F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(24, 20)
+            };
+
+            var body = new Label
+            {
+                Text = bodyText,
+                Font = new Font("Inter", 10F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                AutoSize = true,
+                MaximumSize = new Size(Math.Max(200, card.Width - 72), 0),
+                Location = new Point(24, 50)
+            };
+
+            var time = new Label
+            {
+                Text = timeText,
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                AutoSize = true,
+                Location = new Point(24, 82)
+            };
+
+            card.Controls.Add(accent);
+            card.Controls.Add(title);
+            card.Controls.Add(body);
+            card.Controls.Add(time);
+
+            card.Resize += (_, _) =>
+            {
+                accent.Height = card.Height;
+                body.MaximumSize = new Size(Math.Max(200, card.Width - 72), 0);
+                time.Location = new Point(24, body.Bottom + 8);
+                card.Height = Math.Max(118, time.Bottom + 20);
+            };
+
+            return card;
+        }
+
+        private static string FormatRelativeTime(DateTime dt)
+        {
+            var diff = DateTime.Now - dt;
+            if (diff.TotalMinutes < 1) return "Just now";
+            if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} min ago";
+            if (diff.TotalHours < 24) return $"Today, {dt:h:mm tt}";
+            if (diff.TotalDays < 2) return $"Yesterday, {dt:h:mm tt}";
+            return dt.ToString("MMM dd, yyyy");
         }
 
         private void StyleNavButton(Button button, bool isActive)
@@ -533,9 +801,7 @@ namespace EvaluaTeach
             flowLayoutPanel3.Location = new Point(20, label4.Bottom + 14);
             flowLayoutPanel3.Size = new Size(listContainer.Width - 40, Math.Max(220, listContainer.Height - flowLayoutPanel3.Top - 20));
 
-            LayoutNotificationCard(notificationCard1, notificationTitle1, notificationBody1, notificationTime1, 0, notificationsContainer.Width);
-            LayoutNotificationCard(notificationCard2, notificationTitle2, notificationBody2, notificationTime2, notificationCard1.Bottom + 16, notificationsContainer.Width);
-            LayoutNotificationCard(notificationCard3, notificationTitle3, notificationBody3, notificationTime3, notificationCard2.Bottom + 16, notificationsContainer.Width);
+            LayoutNotificationCards(notificationsContainer.Width);
 
             panel2.Width = Math.Max(420, flowLayoutPanel3.ClientSize.Width - 8);
             panel2.Height = 94;
@@ -576,15 +842,15 @@ namespace EvaluaTeach
             button3.Margin = new Padding(16, logoutTopMargin, 16, 0);
         }
 
-        private void LayoutNotificationCard(Panel panel, Label title, Label body, Label time, int top, int containerWidth)
+        private void LayoutNotificationCards(int containerWidth)
         {
-            panel.Location = new Point(0, top);
-            panel.Size = new Size(containerWidth, 118);
-
-            title.Location = new Point(24, 20);
-            body.Location = new Point(24, 50);
-            body.MaximumSize = new Size(panel.Width - 48, 0);
-            time.Location = new Point(24, 82);
+            int yOffset = 0;
+            foreach (Panel card in notificationsContainer.Controls.OfType<Panel>())
+            {
+                card.Location = new Point(0, yOffset);
+                card.Width = Math.Max(300, containerWidth);
+                yOffset += card.Height + 16;
+            }
         }
 
         private void ShowDashboardView()
@@ -596,6 +862,7 @@ namespace EvaluaTeach
         private void ShowNotificationsView()
         {
             showingNotifications = true;
+            LoadNotifications();
             ApplyCurrentViewState();
         }
 
