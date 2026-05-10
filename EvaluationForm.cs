@@ -43,6 +43,8 @@ namespace EvaluaTeach
     {
         public int Id { get; set; }
         public int FormId { get; set; }
+        public int TeacherId { get; set; }
+        public string TeacherName { get; set; } = string.Empty;
         public string StudentId { get; set; } = string.Empty;
         public string StudentName { get; set; } = string.Empty;
         public DateTime SubmittedAt { get; set; } = DateTime.Now;

@@ -14,7 +14,6 @@ namespace EvaluaTeach
     {
         private readonly Color placeholderColor = Color.FromArgb(148, 163, 184);
         private readonly Color inputTextColor = Color.FromArgb(30, 41, 59);
-        private ComboBox roleSelector = new();
 
         public Login()
         {
@@ -32,11 +31,11 @@ namespace EvaluaTeach
             tableLayoutPanel1.BackColor = BackColor;
             // Match the sign-up page structure so the card stays centered consistently.
             tableLayoutPanel1.ColumnStyles.Clear();
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F));
+            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70F));
+            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F));
             tableLayoutPanel1.RowStyles.Clear();
-            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 110F));
+            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 70F));
             tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
 
@@ -47,10 +46,10 @@ namespace EvaluaTeach
             panel1.Padding = new Padding(28);
             panel1.Dock = DockStyle.None;
             panel1.Anchor = AnchorStyles.None;
-            panel1.Margin = new Padding(0, 36, 0, 0);
+            panel1.Margin = new Padding(0, 12, 0, 0);
             // Slightly larger card for better readability on wide screens.
-            panel1.MaximumSize = new Size(420, 360);
-            panel1.MinimumSize = new Size(360, 340);
+            panel1.MaximumSize = new Size(420, 340);
+            panel1.MinimumSize = new Size(360, 300);
 
             // Global back button pinned to the top-left of the window, not inside the card.
             var backBtn = new Button
@@ -80,37 +79,6 @@ namespace EvaluaTeach
             StyleTextBox(textBox1, "Enter your ID");
             StyleTextBox(textBox2, "Enter your password", true);
 
-            var roleLabel = new Label
-            {
-                Text = "Login As",
-                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
-                AutoSize = true,
-                Location = new Point(28, 180)
-            };
-
-            roleSelector = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Inter", 10F),
-                BackColor = Color.FromArgb(248, 250, 252),
-                FlatStyle = FlatStyle.Flat,
-                Location = new Point(28, 204),
-                Size = new Size(304, 28)
-            };
-            roleSelector.Items.AddRange(new[] { "Student", "Admin" });
-            roleSelector.SelectedIndex = 0;
-            roleSelector.SelectedIndexChanged += (_, _) =>
-            {
-                label2.Text = roleSelector.SelectedIndex == 0 ? "Student ID" : "Admin ID";
-                textBox1.Tag = roleSelector.SelectedIndex == 0 ? "Enter your student ID" : "Enter your admin ID";
-                if (textBox1.Text == "Enter your ID")
-                    textBox1.Text = textBox1.Tag as string ?? "";
-            };
-
-            panel1.Controls.Add(roleLabel);
-            panel1.Controls.Add(roleSelector);
-
             button1.FlatStyle = FlatStyle.Flat;
             button1.FlatAppearance.BorderSize = 0;
             button1.BackColor = Color.FromArgb(22, 163, 74);
@@ -119,6 +87,7 @@ namespace EvaluaTeach
             button1.Text = "Sign in";
             button1.Size = new Size(140, 38);
 
+            tableLayoutPanel1.Refresh();
             UpdateLoginLayout();
             Resize += Login_Resize;
         }
@@ -166,9 +135,9 @@ namespace EvaluaTeach
             int maxWidth = 420;
             int horizontalPadding = 160;
             int targetWidth = Math.Min(maxWidth, ClientSize.Width - horizontalPadding);
-            panel1.Size = new Size(targetWidth, 340);
+            panel1.Size = new Size(targetWidth, 300);
 
-            label2.Location = new Point(28, 60);
+            label2.Location = new Point(28, 40);
             textBox1.Location = new Point(28, label2.Bottom + 10);
             textBox1.Size = new Size(panel1.Width - 56, 32);
 
@@ -176,18 +145,7 @@ namespace EvaluaTeach
             textBox2.Location = new Point(28, label1.Bottom + 10);
             textBox2.Size = new Size(panel1.Width - 56, 32);
 
-            var roleLabel = panel1.Controls.OfType<Label>().FirstOrDefault(l => l.Text == "Login As");
-            if (roleLabel != null)
-            {
-                roleLabel.Location = new Point(28, textBox2.Bottom + 18);
-                roleSelector.Location = new Point(28, roleLabel.Bottom + 8);
-                roleSelector.Size = new Size(panel1.Width - 56, 28);
-                button1.Location = new Point((panel1.Width - button1.Width) / 2, roleSelector.Bottom + 20);
-            }
-            else
-            {
-                button1.Location = new Point((panel1.Width - button1.Width) / 2, textBox2.Bottom + 24);
-            }
+            button1.Location = new Point((panel1.Width - button1.Width) / 2, textBox2.Bottom + 28);
         }
 
         private void Login_Resize(object? sender, EventArgs e)
@@ -245,7 +203,7 @@ namespace EvaluaTeach
             string userId = textBox1.Text.Trim();
             string password = textBox2.Text;
 
-            if (string.IsNullOrWhiteSpace(userId) || userId == "Enter your student ID" || userId == "Enter your admin ID")
+            if (string.IsNullOrWhiteSpace(userId) || userId == "Enter your ID")
             {
                 MessageBox.Show("Please enter your ID.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -257,19 +215,17 @@ namespace EvaluaTeach
                 return;
             }
 
-            bool isAdmin = roleSelector.SelectedIndex == 1;
-
             try
             {
                 // Ensure default users exist
                 EnsureDefaultUsers();
 
-                // Authenticate against database
-                var (isValid, numericId, name, email, course) = AuthenticateUser(userId, password, isAdmin);
+                // Authenticate against database - auto-detect admin or student
+                var (isValid, isAdmin, numericId, name, email, course) = AuthenticateUser(userId, password);
 
                 if (!isValid)
                 {
-                    MessageBox.Show("Invalid ID or password.", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Invalid ID or password. Please check your credentials and try again.", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
@@ -350,56 +306,55 @@ namespace EvaluaTeach
             }
         }
 
-        private (bool isValid, int? numericId, string name, string email, string course) AuthenticateUser(string userId, string password, bool isAdmin)
+        private (bool isValid, bool isAdmin, int? numericId, string name, string email, string course) AuthenticateUser(string userId, string password)
         {
             using var conn = Database.GetConnection();
             conn.Open();
 
             string hashedPassword = HashPassword(password);
 
-            if (isAdmin)
-            {
-                // Try to find admin by AdminID or Email
-                var cmd = new MySqlCommand(@"
-                    SELECT AdminID, FirstName, LastName, Email
-                    FROM Admin
-                    WHERE (AdminID = @id OR Email = @id) AND Password = @password
-                    LIMIT 1", conn);
-                cmd.Parameters.AddWithValue("@id", userId);
-                cmd.Parameters.AddWithValue("@password", hashedPassword);
+            // First, try to find admin by AdminID or Email
+            var adminCmd = new MySqlCommand(@"
+                SELECT AdminID, FirstName, LastName, Email
+                FROM Admin
+                WHERE (AdminID = @id OR Email = @id) AND Password = @password
+                LIMIT 1", conn);
+            adminCmd.Parameters.AddWithValue("@id", userId);
+            adminCmd.Parameters.AddWithValue("@password", hashedPassword);
 
-                using var reader = cmd.ExecuteReader();
-                if (reader.Read())
-                {
-                    int adminId = reader.GetInt32("AdminID");
-                    string name = $"{reader.GetString("FirstName")} {reader.GetString("LastName")}";
-                    string email = reader.GetString("Email");
-                    return (true, adminId, name, email, "");
-                }
-            }
-            else
+            using (var adminReader = adminCmd.ExecuteReader())
             {
-                // Try to find student by IDNumber
-                var cmd = new MySqlCommand(@"
-                    SELECT StudentID, FirstName, LastName, Email, Course
-                    FROM Student
-                    WHERE IDNumber = @id AND Password = @password
-                    LIMIT 1", conn);
-                cmd.Parameters.AddWithValue("@id", userId);
-                cmd.Parameters.AddWithValue("@password", hashedPassword);
-
-                using var reader = cmd.ExecuteReader();
-                if (reader.Read())
+                if (adminReader.Read())
                 {
-                    int studentId = reader.GetInt32("StudentID");
-                    string name = $"{reader.GetString("FirstName")} {reader.GetString("LastName")}";
-                    string email = reader.GetString("Email");
-                    string course = reader.GetString("Course");
-                    return (true, studentId, name, email, course);
+                    int adminId = adminReader.GetInt32("AdminID");
+                    string name = $"{adminReader.GetString("FirstName")} {adminReader.GetString("LastName")}";
+                    string email = adminReader.GetString("Email");
+                    return (true, true, adminId, name, email, "");
                 }
             }
 
-            return (false, null, "", "", "");
+            // If not admin, try to find student by IDNumber
+            var studentCmd = new MySqlCommand(@"
+                SELECT StudentID, FirstName, LastName, Email, Course
+                FROM Student
+                WHERE IDNumber = @id AND Password = @password
+                LIMIT 1", conn);
+            studentCmd.Parameters.AddWithValue("@id", userId);
+            studentCmd.Parameters.AddWithValue("@password", hashedPassword);
+
+            using (var studentReader = studentCmd.ExecuteReader())
+            {
+                if (studentReader.Read())
+                {
+                    int studentId = studentReader.GetInt32("StudentID");
+                    string name = $"{studentReader.GetString("FirstName")} {studentReader.GetString("LastName")}";
+                    string email = studentReader.GetString("Email");
+                    string course = studentReader.GetString("Course");
+                    return (true, false, studentId, name, email, course);
+                }
+            }
+
+            return (false, false, null, "", "", "");
         }
     }
 }

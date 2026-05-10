@@ -19,6 +19,7 @@ namespace EvaluaTeach
         private readonly Button logoutBtn = new();
         private readonly Button dashboardBtn = new();
         private readonly Button responsesBtn = new();
+        private readonly Button teachersBtn = new();
         private readonly Label dashboardSubtitleLabel = new();
         private readonly Label responsesSubtitleLabel = new();
 
@@ -90,6 +91,17 @@ namespace EvaluaTeach
             responsesBtn.TextAlign = ContentAlignment.MiddleLeft;
             responsesBtn.Click += (_, _) => ShowResponses();
 
+            teachersBtn.Text = "  Manage Teachers";
+            teachersBtn.BackColor = Color.Transparent;
+            teachersBtn.ForeColor = Color.FromArgb(203, 213, 225);
+            teachersBtn.FlatStyle = FlatStyle.Flat;
+            teachersBtn.FlatAppearance.BorderSize = 0;
+            teachersBtn.Font = new Font("Inter", 11F);
+            teachersBtn.Size = new Size(192, 48);
+            teachersBtn.Location = new Point(24, 144);
+            teachersBtn.TextAlign = ContentAlignment.MiddleLeft;
+            teachersBtn.Click += (_, _) => OpenTeacherManagement();
+
             logoutBtn.Text = "  LOGOUT";
             logoutBtn.BackColor = Color.FromArgb(220, 38, 38);
             logoutBtn.ForeColor = Color.White;
@@ -98,12 +110,12 @@ namespace EvaluaTeach
             logoutBtn.Font = new Font("Inter Black", 12F, FontStyle.Bold);
             logoutBtn.Size = new Size(192, 56);
             logoutBtn.Location = new Point(24, 580);
-            logoutBtn.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
             logoutBtn.TextAlign = ContentAlignment.MiddleCenter;
             logoutBtn.Click += (_, _) => Logout();
 
             sidebar.Controls.Add(dashboardBtn);
             sidebar.Controls.Add(responsesBtn);
+            sidebar.Controls.Add(teachersBtn);
             sidebar.Controls.Add(logoutBtn);
         }
 
@@ -363,7 +375,7 @@ namespace EvaluaTeach
 
         private void UpdateLayout()
         {
-            logoutBtn.Location = new Point(24, ClientSize.Height - 80);
+            logoutBtn.Location = new Point(24, sidebar.ClientSize.Height - logoutBtn.Height - 32);
 
             createFormBtn.Location = new Point(header.ClientSize.Width - createFormBtn.Width - 24, 14);
 
@@ -407,6 +419,12 @@ namespace EvaluaTeach
                 UpdateStats();
             };
             builder.ShowDialog(this);
+        }
+
+        private void OpenTeacherManagement()
+        {
+            var teacherForm = new TeacherManagement();
+            teacherForm.ShowDialog(this);
         }
 
         private void EditForm(EvaluationForm form)
@@ -546,9 +564,10 @@ namespace EvaluaTeach
                 Tag = "response-card"
             };
 
+            string teacherDisplay = response.TeacherId > 0 ? response.TeacherName : (string.IsNullOrWhiteSpace(form.TargetTeacher) ? "Assigned Teacher" : form.TargetTeacher);
             var headerLabel = new Label
             {
-                Text = $"{response.StudentName} ({response.StudentId}) - {response.SubmittedAt:g}",
+                Text = $"{response.StudentName} ({response.StudentId}) - Evaluated: {teacherDisplay} - {response.SubmittedAt:g}",
                 Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(30, 41, 59),
                 AutoSize = true,
@@ -591,9 +610,10 @@ namespace EvaluaTeach
 
         private static string BuildResponseReport(EvaluationForm form, FormResponse response)
         {
+            string teacherDisplay = response.TeacherId > 0 ? response.TeacherName : (string.IsNullOrWhiteSpace(form.TargetTeacher) ? "Assigned Teacher" : form.TargetTeacher);
             var lines = new List<string>
             {
-                $"Teacher: {(string.IsNullOrWhiteSpace(form.TargetTeacher) ? "Assigned Teacher" : form.TargetTeacher)}",
+                $"Teacher: {teacherDisplay}",
                 $"Department: {(!string.IsNullOrWhiteSpace(form.TargetCourse) ? form.TargetCourse : "All")}",
                 "------------------------------"
             };
@@ -610,7 +630,7 @@ namespace EvaluaTeach
 
         private void SendReportToTeacher(EvaluationForm form, FormResponse response, string reportBody)
         {
-            var teacher = string.IsNullOrWhiteSpace(form.TargetTeacher) ? "Assigned Teacher" : form.TargetTeacher;
+            string teacher = response.TeacherId > 0 ? response.TeacherName : (string.IsNullOrWhiteSpace(form.TargetTeacher) ? "Assigned Teacher" : form.TargetTeacher);
             int reportLength = reportBody.Length;
             MessageBox.Show(
                 $"Report prepared for {teacher}.\n\nStudent: {response.StudentName}\nForm: {form.Title}\nReport size: {reportLength} characters\n\nIn this build, reports are generated and ready to send.",

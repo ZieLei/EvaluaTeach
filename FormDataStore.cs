@@ -331,10 +331,11 @@ namespace EvaluaTeach
             try
             {
                 var subCmd = new MySqlCommand(@"
-                    INSERT INTO FormSubmission (StudentIDNumber, EvaluationID, SubmittedAt)
-                    VALUES (@studentId, @formId, @submittedAt)", conn, tx);
+                    INSERT INTO FormSubmission (StudentIDNumber, EvaluationID, TeacherID, SubmittedAt)
+                    VALUES (@studentId, @formId, @teacherId, @submittedAt)", conn, tx);
                 subCmd.Parameters.AddWithValue("@studentId", response.StudentId);
                 subCmd.Parameters.AddWithValue("@formId", response.FormId);
+                subCmd.Parameters.AddWithValue("@teacherId", response.TeacherId > 0 ? response.TeacherId : (object)DBNull.Value);
                 subCmd.Parameters.AddWithValue("@submittedAt", response.SubmittedAt);
                 subCmd.ExecuteNonQuery();
 
@@ -369,19 +370,25 @@ namespace EvaluaTeach
             conn.Open();
 
             var cmd = new MySqlCommand(@"
-                SELECT SubmissionID, StudentIDNumber, EvaluationID, SubmittedAt
-                FROM FormSubmission
-                WHERE EvaluationID = @formId", conn);
+                SELECT fs.SubmissionID, fs.StudentIDNumber, fs.EvaluationID, fs.TeacherID, fs.SubmittedAt,
+                       CONCAT(t.FirstName, ' ', t.LastName) as TeacherName
+                FROM FormSubmission fs
+                LEFT JOIN Teacher t ON fs.TeacherID = t.TeacherID
+                WHERE fs.EvaluationID = @formId", conn);
             cmd.Parameters.AddWithValue("@formId", formId);
 
             using (var reader = cmd.ExecuteReader())
             {
                 while (reader.Read())
                 {
+                    var teacherId = reader.IsDBNull(reader.GetOrdinal("TeacherID")) ? 0 : reader.GetInt32("TeacherID");
+                    var teacherName = reader.IsDBNull(reader.GetOrdinal("TeacherName")) ? "" : reader.GetString("TeacherName");
                     responses.Add(new FormResponse
                     {
                         Id = reader.GetInt32("SubmissionID"),
                         FormId = reader.GetInt32("EvaluationID"),
+                        TeacherId = teacherId,
+                        TeacherName = teacherName,
                         StudentId = reader.GetString("StudentIDNumber"),
                         SubmittedAt = reader.GetDateTime("SubmittedAt"),
                         Answers = new Dictionary<int, string>()

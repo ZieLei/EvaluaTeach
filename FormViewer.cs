@@ -11,15 +11,19 @@ namespace EvaluaTeach
         private void InitializeComponent() { }
 
         private readonly EvaluationForm form;
+        private readonly int teacherId;
+        private readonly string teacherName;
         private readonly Dictionary<int, Control> answerControls = new();
         private readonly FlowLayoutPanel questionsPanel = new();
         private Label progressLabel = null!;
 
         public event Action? FormSubmitted;
 
-        public FormViewer(EvaluationForm evaluationForm)
+        public FormViewer(EvaluationForm evaluationForm, int teacherId = 0, string teacherName = "")
         {
             form = evaluationForm;
+            this.teacherId = teacherId;
+            this.teacherName = teacherName;
             InitializeComponent();
             ConfigureFormViewer();
             BuildDynamicForm();
@@ -27,7 +31,8 @@ namespace EvaluaTeach
 
         private void ConfigureFormViewer()
         {
-            Text = $"Evaluating: {form.Title}";
+            string title = teacherId > 0 ? $"Evaluating: {form.Title} - {teacherName}" : $"Evaluating: {form.Title}";
+            Text = title;
             MinimumSize = new Size(800, 600);
             Size = new Size(900, 700);
             StartPosition = FormStartPosition.CenterParent;
@@ -517,6 +522,8 @@ namespace EvaluaTeach
             var response = new FormResponse
             {
                 FormId = form.Id,
+                TeacherId = teacherId,
+                TeacherName = teacherName,
                 StudentId = string.IsNullOrWhiteSpace(SessionStore.UserId) ? ProfileStore.StudentId : SessionStore.UserId,
                 StudentName = string.IsNullOrWhiteSpace(SessionStore.UserName) ? ProfileStore.Name : SessionStore.UserName,
                 Answers = answers,

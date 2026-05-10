@@ -13,6 +13,8 @@ namespace EvaluaTeach
         private readonly FlowLayoutPanel formsListPanel = new();
         private readonly Label statusLabel = new();
         private readonly Panel contentPanel = new();
+        private readonly int? filterTeacherId;
+        private readonly string? filterTeacherName;
 
         public StudentFormsView()
         {
@@ -28,9 +30,28 @@ namespace EvaluaTeach
             };
         }
 
+        public StudentFormsView(int teacherId, string teacherName)
+        {
+            filterTeacherId = teacherId;
+            filterTeacherName = teacherName;
+            InitializeComponent();
+            ConfigureStudentFormsView();
+            LoadAvailableForms();
+            FormDataStore.FormsUpdated += OnFormsUpdated;
+            FormDataStore.ResponsesUpdated += OnFormsUpdated;
+            FormClosed += (_, _) =>
+            {
+                FormDataStore.FormsUpdated -= OnFormsUpdated;
+                FormDataStore.ResponsesUpdated -= OnFormsUpdated;
+            };
+        }
+
         private void ConfigureStudentFormsView()
         {
-            Text = "Available Evaluation Forms";
+            string title = filterTeacherId.HasValue ? $"Forms for {filterTeacherName}" : "Available Evaluation Forms";
+            string subtitle = filterTeacherId.HasValue ? $"Complete evaluations for {filterTeacherName}" : "Complete the following evaluations for your teachers";
+
+            Text = title;
             MinimumSize = new Size(900, 600);
             StartPosition = FormStartPosition.CenterParent;
             BackColor = Color.FromArgb(245, 247, 251);
@@ -46,7 +67,7 @@ namespace EvaluaTeach
 
             var titleLabel = new Label
             {
-                Text = "Evaluation Forms",
+                Text = title,
                 Font = new Font("Inter", 20F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(15, 23, 42),
                 AutoSize = true,
@@ -55,7 +76,7 @@ namespace EvaluaTeach
 
             var subtitleLabel = new Label
             {
-                Text = "Complete the following evaluations for your teachers",
+                Text = subtitle,
                 Font = new Font("Inter", 11F),
                 ForeColor = Color.FromArgb(100, 116, 139),
                 AutoSize = true,
@@ -318,7 +339,9 @@ namespace EvaluaTeach
 
         private void OpenFormViewer(EvaluationForm form)
         {
-            var viewer = new FormViewer(form);
+            int tid = filterTeacherId ?? 0;
+            string tname = filterTeacherName ?? "";
+            var viewer = new FormViewer(form, tid, tname);
             viewer.FormSubmitted += () =>
             {
                 LoadAvailableForms();

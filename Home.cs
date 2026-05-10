@@ -21,6 +21,7 @@ namespace EvaluaTeach
         private readonly Panel listContainer = new();
         private readonly Panel notificationsContainer = new();
         private readonly Label notificationsSubtitle = new();
+        private readonly FlowLayoutPanel teachersPanel = new();
         private bool dashboardLayoutInitialized;
         private bool showingNotifications;
         private bool applyingViewState;
@@ -149,6 +150,7 @@ namespace EvaluaTeach
             StyleIconButton(button8);
             StyleProfileAvatarButton();
             ConfigureDashboardPanels();
+            ConfigureTeachersPanel();
             StyleTeacherCard();
             ConfigureNotificationsPanel();
 
@@ -159,16 +161,19 @@ namespace EvaluaTeach
 
             FormDataStore.FormsUpdated += OnFormsUpdated;
             FormDataStore.ResponsesUpdated += OnFormsUpdated;
+            TeacherStore.TeachersUpdated += OnTeachersUpdated;
             FormClosed += (_, _) =>
             {
                 FormDataStore.FormsUpdated -= OnFormsUpdated;
                 FormDataStore.ResponsesUpdated -= OnFormsUpdated;
+                TeacherStore.TeachersUpdated -= OnTeachersUpdated;
                 ProfileStore.ProfileUpdated -= OnProfileUpdated;
             };
 
             ShowDashboardView();
             UpdateResponsiveLayout();
             UpdateMetrics();
+            LoadTeachers();
         }
 
         private void OpenStudentForms()
@@ -266,7 +271,129 @@ namespace EvaluaTeach
                 listContainer.Controls.Add(label5);
                 listContainer.Controls.Add(label6);
                 listContainer.Controls.Add(flowLayoutPanel3);
+                listContainer.Controls.Add(teachersPanel);
             }
+        }
+
+        private void ConfigureTeachersPanel()
+        {
+            teachersPanel.FlowDirection = FlowDirection.TopDown;
+            teachersPanel.WrapContents = false;
+            teachersPanel.AutoScroll = true;
+            teachersPanel.BackColor = Color.White;
+            teachersPanel.Padding = new Padding(0, 12, 0, 12);
+            teachersPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        }
+
+        private void OnTeachersUpdated()
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(LoadTeachers));
+                return;
+            }
+            LoadTeachers();
+        }
+
+        private void LoadTeachers()
+        {
+            teachersPanel.Controls.Clear();
+            var teachers = TeacherStore.GetAllTeachers();
+
+            // Update metric
+            metricLabel1.Text = $"{teachers.Count} Teachers";
+
+            // Dynamic width: ~1725 at full width
+            int cardWidth = (listContainer.Width * 2) - 150;
+
+            if (teachers.Count == 0)
+            {
+                var emptyLabel = new Label
+                {
+                    Text = "No teachers available yet.",
+                    Font = new Font("Inter", 11F),
+                    ForeColor = Color.FromArgb(148, 163, 184),
+                    AutoSize = true,
+                    Margin = new Padding(8)
+                };
+                teachersPanel.Controls.Add(emptyLabel);
+                return;
+            }
+
+            foreach (var teacher in teachers)
+            {
+                var card = CreateTeacherCard(teacher, cardWidth);
+                teachersPanel.Controls.Add(card);
+            }
+        }
+
+        private Panel CreateTeacherCard(Teacher teacher, int cardWidth)
+        {
+            var card = new Panel
+            {
+                BackColor = Color.White,
+                Size = new Size(cardWidth, 94),
+                Margin = new Padding(0, 0, 0, 12),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            // Name label - same as label3 (Mang Juan)
+            var nameLabel = new Label
+            {
+                Text = teacher.FullName,
+                Font = new Font("Inter", 12F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(22, 34)
+            };
+
+            // Subject label - same as label7 position
+            var subjectLabel = new Label
+            {
+                Text = teacher.SubjectsDisplay,
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(Math.Max(180, card.Width / 3), 34)
+            };
+
+            // Department label - same as label8 position
+            var deptLabel = new Label
+            {
+                Text = teacher.Department,
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(Math.Max(360, card.Width / 2 + 20), 34)
+            };
+
+            // View Forms button - same as button4
+            var viewFormsBtn = new Button
+            {
+                Text = "View Forms",
+                BackColor = Color.FromArgb(38, 166, 91),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9.5F, FontStyle.Bold),
+                Size = new Size(118, 42),
+                Location = new Point(card.Width - 140, 26)
+            };
+            viewFormsBtn.Click += (_, _) => OpenTeacherForms(teacher);
+
+            card.Controls.Add(nameLabel);
+            card.Controls.Add(subjectLabel);
+            card.Controls.Add(deptLabel);
+            card.Controls.Add(viewFormsBtn);
+
+            return card;
+        }
+
+        private void OpenTeacherForms(Teacher teacher)
+        {
+            // Open the student forms view filtered for this teacher
+            var formsView = new StudentFormsView(teacher.TeacherID, teacher.FullName);
+            formsView.ShowDialog(this);
         }
 
         private void StyleMetric(Label label, string text)
@@ -798,20 +925,11 @@ namespace EvaluaTeach
             label5.Location = new Point(Math.Max(180, listContainer.Width / 3), 20);
             label6.Location = new Point(Math.Max(360, listContainer.Width / 2 + 40), 20);
 
-            flowLayoutPanel3.Location = new Point(20, label4.Bottom + 14);
-            flowLayoutPanel3.Size = new Size(listContainer.Width - 40, Math.Max(220, listContainer.Height - flowLayoutPanel3.Top - 20));
+            // Teachers panel fills the list container below the headers
+            teachersPanel.Location = new Point(20, label4.Bottom + 14);
+            teachersPanel.Size = new Size(listContainer.Width - 40, Math.Max(300, listContainer.Height - teachersPanel.Top - 20));
 
             LayoutNotificationCards(notificationsContainer.Width);
-
-            panel2.Width = Math.Max(420, flowLayoutPanel3.ClientSize.Width - 8);
-            panel2.Height = 94;
-
-            label3.Location = new Point(22, 34);
-            label7.Location = new Point(Math.Max(180, panel2.Width / 3), 34);
-            label8.Location = new Point(Math.Max(360, panel2.Width / 2 + 20), 34);
-
-            button4.Size = new Size(118, 42);
-            button4.Location = new Point(panel2.Width - button4.Width - 22, 26);
 
             panel3.Width = 200;
             panel3.Height = 52;
@@ -879,9 +997,9 @@ namespace EvaluaTeach
             {
                 listContainer.Controls.Add(flowLayoutPanel3);
             }
-            if (panel2.Parent != flowLayoutPanel3)
+            if (teachersPanel.Parent != listContainer)
             {
-                flowLayoutPanel3.Controls.Add(panel2);
+                listContainer.Controls.Add(teachersPanel);
             }
 
             bool showDashboard = !showingNotifications;
@@ -892,7 +1010,7 @@ namespace EvaluaTeach
             summaryPanel.Visible = showDashboard;
             listContainer.Visible = showDashboard;
             flowLayoutPanel3.Visible = showDashboard;
-            panel2.Visible = showDashboard;
+            teachersPanel.Visible = showDashboard;
             notificationsContainer.Visible = !showDashboard;
 
             if (showDashboard)
@@ -900,7 +1018,7 @@ namespace EvaluaTeach
                 summaryPanel.BringToFront();
                 sectionSubtitle.BringToFront();
                 listContainer.BringToFront();
-                flowLayoutPanel3.BringToFront();
+                teachersPanel.BringToFront();
             }
             else
             {
