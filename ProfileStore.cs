@@ -1,6 +1,8 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using MySql.Data.MySqlClient;
 
 namespace EvaluaTeach
@@ -173,6 +175,53 @@ namespace EvaluaTeach
             {
                 // Silently fail if avatar can't be saved
             }
+        }
+
+        public static bool ChangePassword(string oldPassword, string newPassword)
+        {
+            if (!SessionStore.IsLoggedIn || !SessionStore.UserIdNumeric.HasValue)
+                return false;
+
+            try
+            {
+                string oldHash = HashPassword(oldPassword);
+                string newHash = HashPassword(newPassword);
+
+                using var conn = Database.GetConnection();
+                conn.Open();
+
+                if (SessionStore.Role == UserRole.Admin)
+                {
+                    var cmd = new MySqlCommand(
+                        "UPDATE Admin SET Password = @newHash WHERE AdminID = @id AND Password = @oldHash",
+                        conn);
+                    cmd.Parameters.AddWithValue("@newHash", newHash);
+                    cmd.Parameters.AddWithValue("@id", SessionStore.UserIdNumeric.Value);
+                    cmd.Parameters.AddWithValue("@oldHash", oldHash);
+                    return cmd.ExecuteNonQuery() > 0;
+                }
+                else
+                {
+                    var cmd = new MySqlCommand(
+                        "UPDATE Student SET Password = @newHash WHERE StudentID = @id AND Password = @oldHash",
+                        conn);
+                    cmd.Parameters.AddWithValue("@newHash", newHash);
+                    cmd.Parameters.AddWithValue("@id", SessionStore.UserIdNumeric.Value);
+                    cmd.Parameters.AddWithValue("@oldHash", oldHash);
+                    return cmd.ExecuteNonQuery() > 0;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string HashPassword(string password)
+        {
+            using var sha256 = SHA256.Create();
+            var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+            return Convert.ToBase64String(bytes);
         }
     }
 }

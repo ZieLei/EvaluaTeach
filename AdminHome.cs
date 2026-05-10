@@ -33,6 +33,7 @@ namespace EvaluaTeach
         private readonly TextBox passwordInput = new();
         private readonly TextBox subjectsInput = new();
         private readonly ComboBox departmentSelector = new();
+        private readonly Button profileBtn = new();
         private bool showingResponses;
         private bool showingTeachers;
 
@@ -148,6 +149,22 @@ namespace EvaluaTeach
             titleLabel.AutoSize = true;
             titleLabel.Location = new Point(272, 22);
 
+            profileBtn.Text = "Profile";
+            profileBtn.BackColor = Color.FromArgb(241, 245, 249);
+            profileBtn.ForeColor = Color.FromArgb(15, 23, 42);
+            profileBtn.FlatStyle = FlatStyle.Flat;
+            profileBtn.FlatAppearance.BorderSize = 0;
+            profileBtn.Font = new Font("Inter SemiBold", 10F, FontStyle.Bold);
+            profileBtn.Size = new Size(100, 44);
+            profileBtn.Location = new Point(580, 14);
+            profileBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            profileBtn.Click += (_, _) =>
+            {
+                var profilePage = new AdminProfilePage();
+                profilePage.SetProfileInfo(SessionStore.UserName, "Administrator", SessionStore.Email, SessionStore.UserId);
+                profilePage.ShowDialog(this);
+            };
+
             createFormBtn.Text = "+ Create New Form";
             createFormBtn.BackColor = Color.FromArgb(38, 166, 91);
             createFormBtn.ForeColor = Color.White;
@@ -162,6 +179,7 @@ namespace EvaluaTeach
 
             header.Controls.Add(logoLabel);
             header.Controls.Add(titleLabel);
+            header.Controls.Add(profileBtn);
             header.Controls.Add(createFormBtn);
             header.Width = header.Parent?.ClientSize.Width ?? 800;
         }
@@ -396,6 +414,7 @@ namespace EvaluaTeach
         {
             logoutBtn.Location = new Point(24, sidebar.ClientSize.Height - logoutBtn.Height - 32);
 
+            profileBtn.Location = new Point(header.ClientSize.Width - createFormBtn.Width - profileBtn.Width - 36, 14);
             createFormBtn.Location = new Point(header.ClientSize.Width - createFormBtn.Width - 24, 14);
 
             if (!showingResponses)

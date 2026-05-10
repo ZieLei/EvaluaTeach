@@ -12,6 +12,7 @@ namespace EvaluaTeach
     {
         private const int CardPaddingSize = 32;
         private const int CardMarginSize = 12;
+        private readonly Button buttonChangePassword = new();
 
         public ProfilePage()
         {
@@ -54,7 +55,7 @@ namespace EvaluaTeach
 
         private void ConfigureProfileUi()
         {
-            MinimumSize = new Size(980, 720);
+            MinimumSize = new Size(900, 650);
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.FromArgb(241, 245, 249);
             Text = "Student Profile";
@@ -79,9 +80,17 @@ namespace EvaluaTeach
             buttonEditPhoto.Text = "Edit photo";
             buttonEditPhoto.Click += ButtonEditPhoto_Click;
 
+            buttonChangePassword.FlatStyle = FlatStyle.Flat;
+            buttonChangePassword.FlatAppearance.BorderSize = 0;
+            buttonChangePassword.BackColor = Color.FromArgb(254, 243, 199);
+            buttonChangePassword.ForeColor = Color.FromArgb(180, 83, 9);
+            buttonChangePassword.Font = new Font("Inter SemiBold", 8.5F, FontStyle.Bold);
+            buttonChangePassword.Text = "Change Password";
+            buttonChangePassword.Click += ButtonChangePassword_Click;
+            panelAccount.Controls.Add(buttonChangePassword);
+
             labelStudentName.Font = new Font("Inter", 18F, FontStyle.Bold);
             labelStudentName.ForeColor = Color.FromArgb(15, 23, 42);
-
             labelStudentMeta.Font = new Font("Inter", 10F, FontStyle.Regular);
             labelStudentMeta.ForeColor = Color.FromArgb(100, 116, 139);
 
@@ -113,6 +122,7 @@ namespace EvaluaTeach
             Resize += ProfilePage_Resize;
         }
 
+        
         private void ButtonEditPhoto_Click(object? sender, EventArgs e)
         {
             using OpenFileDialog dialog = new()
@@ -138,6 +148,159 @@ namespace EvaluaTeach
                 labelAvatar.Image = ProfileStore.Avatar;
                 labelAvatar.Text = string.Empty;
             }
+        }
+
+        private void ButtonChangePassword_Click(object? sender, EventArgs e)
+        {
+            var dialog = new Form
+            {
+                Text = "Change Password",
+                StartPosition = FormStartPosition.CenterParent,
+                BackColor = Color.FromArgb(241, 245, 249),
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                Size = new Size(420, 320),
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            int y = 24;
+
+            var lblOld = new Label
+            {
+                Text = "Current Password",
+                Font = new Font("Inter SemiBold", 9.5F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Location = new Point(32, y),
+                AutoSize = true
+            };
+            dialog.Controls.Add(lblOld);
+            y += 24;
+
+            var txtOld = new TextBox
+            {
+                UseSystemPasswordChar = true,
+                Font = new Font("Inter", 11F),
+                Location = new Point(32, y),
+                Size = new Size(340, 28),
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            dialog.Controls.Add(txtOld);
+            y += 48;
+
+            var lblNew = new Label
+            {
+                Text = "New Password",
+                Font = new Font("Inter SemiBold", 9.5F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Location = new Point(32, y),
+                AutoSize = true
+            };
+            dialog.Controls.Add(lblNew);
+            y += 24;
+
+            var txtNew = new TextBox
+            {
+                UseSystemPasswordChar = true,
+                Font = new Font("Inter", 11F),
+                Location = new Point(32, y),
+                Size = new Size(340, 28),
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            dialog.Controls.Add(txtNew);
+            y += 48;
+
+            var lblConfirm = new Label
+            {
+                Text = "Confirm New Password",
+                Font = new Font("Inter SemiBold", 9.5F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Location = new Point(32, y),
+                AutoSize = true
+            };
+            dialog.Controls.Add(lblConfirm);
+            y += 24;
+
+            var txtConfirm = new TextBox
+            {
+                UseSystemPasswordChar = true,
+                Font = new Font("Inter", 11F),
+                Location = new Point(32, y),
+                Size = new Size(340, 28),
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            dialog.Controls.Add(txtConfirm);
+
+            var btnCancel = new Button
+            {
+                Text = "Cancel",
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(226, 232, 240),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(100, 36),
+                Location = new Point(140, 230)
+            };
+            btnCancel.FlatAppearance.BorderSize = 0;
+            btnCancel.Click += (_, _) => dialog.Close();
+            dialog.Controls.Add(btnCancel);
+
+            var btnSave = new Button
+            {
+                Text = "Save",
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(22, 163, 74),
+                ForeColor = Color.White,
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(100, 36),
+                Location = new Point(252, 230)
+            };
+            btnSave.FlatAppearance.BorderSize = 0;
+            btnSave.Click += (_, _) =>
+            {
+                string oldPass = txtOld.Text;
+                string newPass = txtNew.Text;
+                string confirmPass = txtConfirm.Text;
+
+                if (string.IsNullOrWhiteSpace(oldPass))
+                {
+                    MessageBox.Show("Please enter your current password.", "Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(newPass))
+                {
+                    MessageBox.Show("Please enter a new password.", "Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (newPass.Length < 6)
+                {
+                    MessageBox.Show("New password must be at least 6 characters.", "Too Short", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (newPass != confirmPass)
+                {
+                    MessageBox.Show("New passwords do not match.", "Mismatch", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (ProfileStore.ChangePassword(oldPass, newPass))
+                {
+                    MessageBox.Show("Password changed successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    dialog.Close();
+                }
+                else
+                {
+                    MessageBox.Show("Current password is incorrect.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+            dialog.Controls.Add(btnSave);
+
+            dialog.ShowDialog(this);
         }
 
         private void StyleCard(Panel panel)
@@ -166,15 +329,19 @@ namespace EvaluaTeach
 
         private void UpdateProfileLayout()
         {
-            int cardWidth = Math.Min(560, Math.Max(460, ClientSize.Width - 280));
-
+            int availableWidth = ClientSize.Width - 100; // Account for margins
+            
+            // Responsive card sizing
+            int cardWidth = Math.Max(450, Math.Min(800, availableWidth));
+            
             panelHeader.Width = cardWidth;
             panelAcademic.Width = cardWidth;
             panelAccount.Width = cardWidth;
 
+            // Panel heights
             panelHeader.Height = 172;
             panelAcademic.Height = 200;
-            panelAccount.Height = 168;
+            panelAccount.Height = 210;
 
             labelAvatar.Size = new Size(84, 84);
             labelAvatar.Location = new Point(CardPaddingSize, CardPaddingSize);
@@ -204,7 +371,9 @@ namespace EvaluaTeach
             labelEmailValue.Location = new Point(CardPaddingSize, 92);
             labelStatusTitle.Location = new Point(rightColumnLeft, 66);
             labelStatusValue.Location = new Point(rightColumnLeft, 92);
-            labelNote.Location = new Point(CardPaddingSize, 126);
+            buttonChangePassword.Size = new Size(140, 28);
+            buttonChangePassword.Location = new Point(CardPaddingSize, 128);
+            labelNote.Location = new Point(CardPaddingSize, 168);
             labelNote.MaximumSize = new Size(cardWidth - (CardPaddingSize * 2), 0);
 
             panelHeader.Margin = new Padding(50, CardMarginSize, 50, CardMarginSize);
