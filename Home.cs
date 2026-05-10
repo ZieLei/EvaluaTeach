@@ -49,7 +49,7 @@ namespace EvaluaTeach
 
             if (!string.IsNullOrWhiteSpace(name) || !string.IsNullOrWhiteSpace(meta))
             {
-                profile.SetProfileInfo(name, meta);
+                profile.SetProfileInfo(name, meta, ProfileStore.Email, ProfileStore.StudentId, ProfileStore.DatabaseStudentId);
             }
             profile.Show();
         }
@@ -831,6 +831,12 @@ namespace EvaluaTeach
         private void Home_Shown(object? sender, EventArgs e)
         {
             BeginInvoke(new Action(EnsureDashboardInitialLayout));
+            
+            // Reload avatar from database to ensure we have the latest
+            if (ProfileStore.DatabaseStudentId.HasValue)
+            {
+                ProfileStore.LoadAvatarFromDatabase(ProfileStore.DatabaseStudentId.Value);
+            }
         }
 
         private void Home_Resize(object? sender, EventArgs e)

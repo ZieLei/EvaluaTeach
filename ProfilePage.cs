@@ -21,7 +21,7 @@ namespace EvaluaTeach
         }
 
         // Allow other forms to populate profile fields before showing
-        public void SetProfileInfo(string studentName, string studentMeta, string? email = null, string? studentId = null)
+        public void SetProfileInfo(string studentName, string studentMeta, string? email = null, string? studentId = null, int? databaseId = null)
         {
             if (!string.IsNullOrWhiteSpace(studentName))
             {
@@ -43,7 +43,13 @@ namespace EvaluaTeach
                 labelStudentIdValue.Text = studentId;
             }
             // Update shared store so subscribers (Home) get the latest values
-            ProfileStore.UpdateProfile(studentName, studentMeta, email, studentId);
+            ProfileStore.UpdateProfile(studentName, studentMeta, email, studentId, databaseId);
+
+            // Load avatar from database to ensure we have the latest
+            if (databaseId.HasValue)
+            {
+                ProfileStore.LoadAvatarFromDatabase(databaseId.Value);
+            }
 
             // Load avatar from ProfileStore if available
             if (ProfileStore.Avatar != null)
@@ -139,14 +145,15 @@ namespace EvaluaTeach
 
             using Image selectedImage = Image.FromFile(dialog.FileName);
 
-            // Save avatar to shared store with no modifications
-            ProfileStore.SetAvatar(selectedImage);
-
-            // Use the avatar from ProfileStore for the label
-            if (ProfileStore.Avatar != null)
+            // Save avatar to database - only update UI if successful
+            if (ProfileStore.SetAvatar(selectedImage))
             {
-                labelAvatar.Image = ProfileStore.Avatar;
-                labelAvatar.Text = string.Empty;
+                // Use the avatar from ProfileStore for the label
+                if (ProfileStore.Avatar != null)
+                {
+                    labelAvatar.Image = ProfileStore.Avatar;
+                    labelAvatar.Text = string.Empty;
+                }
             }
         }
 

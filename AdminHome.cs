@@ -20,8 +20,10 @@ namespace EvaluaTeach
         private readonly Button dashboardBtn = new();
         private readonly Button responsesBtn = new();
         private readonly Button teachersBtn = new();
+        private readonly Button studentsBtn = new();
         private readonly Label dashboardSubtitleLabel = new();
         private readonly Label responsesSubtitleLabel = new();
+        private readonly Label studentsSubtitleLabel = new();
 
         private readonly Label statsLabel1 = new();
         private readonly Label statsLabel2 = new();
@@ -33,9 +35,14 @@ namespace EvaluaTeach
         private readonly TextBox passwordInput = new();
         private readonly TextBox subjectsInput = new();
         private readonly ComboBox departmentSelector = new();
+        private readonly TextBox teacherSectionInput = new();
+        private readonly TextBox teacherCourseInput = new();
+        private readonly TextBox teacherYearLevelInput = new();
         private readonly Button profileBtn = new();
         private bool showingResponses;
         private bool showingTeachers;
+        private bool showingStudents;
+        private bool showingDashboard;
 
         public AdminHome()
         {
@@ -111,6 +118,17 @@ namespace EvaluaTeach
             teachersBtn.TextAlign = ContentAlignment.MiddleLeft;
             teachersBtn.Click += (_, _) => OpenTeacherManagement();
 
+            studentsBtn.Text = "  Manage Students";
+            studentsBtn.BackColor = Color.Transparent;
+            studentsBtn.ForeColor = Color.FromArgb(203, 213, 225);
+            studentsBtn.FlatStyle = FlatStyle.Flat;
+            studentsBtn.FlatAppearance.BorderSize = 0;
+            studentsBtn.Font = new Font("Inter", 11F);
+            studentsBtn.Size = new Size(192, 48);
+            studentsBtn.Location = new Point(24, 204);
+            studentsBtn.TextAlign = ContentAlignment.MiddleLeft;
+            studentsBtn.Click += (_, _) => ShowStudentManagement();
+
             logoutBtn.Text = "  LOGOUT";
             logoutBtn.BackColor = Color.FromArgb(220, 38, 38);
             logoutBtn.ForeColor = Color.White;
@@ -125,6 +143,7 @@ namespace EvaluaTeach
             sidebar.Controls.Add(dashboardBtn);
             sidebar.Controls.Add(responsesBtn);
             sidebar.Controls.Add(teachersBtn);
+            sidebar.Controls.Add(studentsBtn);
             sidebar.Controls.Add(logoutBtn);
         }
 
@@ -485,6 +504,7 @@ namespace EvaluaTeach
         {
             showingResponses = false;
             showingTeachers = false;
+            showingStudents = false;
             UpdateNavButtons();
             titleLabel.Text = "Evaluation Forms Management";
             createFormBtn.Visible = true;
@@ -504,6 +524,7 @@ namespace EvaluaTeach
         {
             showingResponses = true;
             showingTeachers = false;
+            showingStudents = false;
             UpdateNavButtons();
             titleLabel.Text = "Student Responses";
             createFormBtn.Visible = false;
@@ -523,6 +544,7 @@ namespace EvaluaTeach
         {
             showingResponses = false;
             showingTeachers = true;
+            showingStudents = false;
             UpdateNavButtons();
             titleLabel.Text = "Teacher Management";
             createFormBtn.Visible = false;
@@ -538,12 +560,14 @@ namespace EvaluaTeach
 
         private void UpdateNavButtons()
         {
-            dashboardBtn.BackColor = showingResponses || showingTeachers ? Color.Transparent : Color.FromArgb(38, 166, 91);
-            dashboardBtn.ForeColor = showingResponses || showingTeachers ? Color.FromArgb(203, 213, 225) : Color.White;
+            dashboardBtn.BackColor = showingResponses || showingTeachers || showingStudents ? Color.Transparent : Color.FromArgb(38, 166, 91);
+            dashboardBtn.ForeColor = showingResponses || showingTeachers || showingStudents ? Color.FromArgb(203, 213, 225) : Color.White;
             responsesBtn.BackColor = showingResponses ? Color.FromArgb(38, 166, 91) : Color.Transparent;
             responsesBtn.ForeColor = showingResponses ? Color.White : Color.FromArgb(203, 213, 225);
             teachersBtn.BackColor = showingTeachers ? Color.FromArgb(38, 166, 91) : Color.Transparent;
             teachersBtn.ForeColor = showingTeachers ? Color.White : Color.FromArgb(203, 213, 225);
+            studentsBtn.BackColor = showingStudents ? Color.FromArgb(38, 166, 91) : Color.Transparent;
+            studentsBtn.ForeColor = showingStudents ? Color.White : Color.FromArgb(203, 213, 225);
         }
 
         private void LoadResponsesView()
@@ -1298,7 +1322,7 @@ namespace EvaluaTeach
             var card = new Panel
             {
                 BackColor = Color.White,
-                Size = new Size(teachersListPanel.Width - 40, 110),
+                Size = new Size(teachersListPanel.Width - 40, 130),
                 Margin = new Padding(0, 0, 0, 12),
                 Padding = new Padding(20)
             };
@@ -1374,6 +1398,24 @@ namespace EvaluaTeach
                 Location = new Point(200, 74)
             };
 
+            // Edit button
+            var editBtn = new Button
+            {
+                Text = "✏️ Edit",
+                BackColor = Color.FromArgb(224, 242, 254),
+                ForeColor = Color.FromArgb(3, 105, 161),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                Size = new Size(75, 32),
+                Location = new Point(card.Width - 200, 70),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Cursor = Cursors.Hand
+            };
+            editBtn.Click += (_, _) => EditTeacher(teacher);
+            editBtn.MouseEnter += (_, _) => editBtn.BackColor = Color.FromArgb(186, 230, 253);
+            editBtn.MouseLeave += (_, _) => editBtn.BackColor = Color.FromArgb(224, 242, 254);
+
             // Delete button
             var deleteBtn = new Button
             {
@@ -1383,8 +1425,8 @@ namespace EvaluaTeach
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                Size = new Size(110, 32),
-                Location = new Point(card.Width - 130, 39),
+                Size = new Size(100, 32),
+                Location = new Point(card.Width - 115, 70),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Cursor = Cursors.Hand
             };
@@ -1398,12 +1440,14 @@ namespace EvaluaTeach
             card.Controls.Add(emailLabel);
             card.Controls.Add(deptBadge);
             card.Controls.Add(subjectsLabel);
+            card.Controls.Add(editBtn);
             card.Controls.Add(deleteBtn);
 
             card.Resize += (_, _) =>
             {
                 accentBar.Size = new Size(4, card.Height);
-                deleteBtn.Location = new Point(card.Width - 130, 39);
+                editBtn.Location = new Point(card.Width - 200, 70);
+                deleteBtn.Location = new Point(card.Width - 115, 70);
             };
 
             return card;
@@ -1453,13 +1497,315 @@ namespace EvaluaTeach
             }
         }
 
+        private void EditTeacher(Teacher teacher)
+        {
+            var dialog = new Form
+            {
+                Text = "Edit Teacher",
+                Size = new Size(500, 480),
+                StartPosition = FormStartPosition.CenterParent,
+                BackColor = Color.White,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            int y = 16;
+
+            var title = new Label
+            {
+                Text = "Edit Teacher",
+                Font = new Font("Inter", 14F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            dialog.Controls.Add(title);
+            y += 32;
+
+            // Row 1: First Name | Last Name
+            var firstNameLabel = new Label
+            {
+                Text = "First Name *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            dialog.Controls.Add(firstNameLabel);
+
+            var lastNameLabel = new Label
+            {
+                Text = "Last Name *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(240, y)
+            };
+            dialog.Controls.Add(lastNameLabel);
+            y += 20;
+
+            var txtFirstName = new TextBox
+            {
+                Text = teacher.FirstName,
+                Location = new Point(20, y),
+                Size = new Size(200, 26),
+                Font = new Font("Inter", 10F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252)
+            };
+            dialog.Controls.Add(txtFirstName);
+
+            var txtLastName = new TextBox
+            {
+                Text = teacher.LastName,
+                Location = new Point(240, y),
+                Size = new Size(220, 26),
+                Font = new Font("Inter", 10F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252)
+            };
+            dialog.Controls.Add(txtLastName);
+            y += 44;
+
+            // Row 2: Email (full width)
+            var emailLabel = new Label
+            {
+                Text = "Email *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            dialog.Controls.Add(emailLabel);
+            y += 20;
+
+            var txtEmail = new TextBox
+            {
+                Text = teacher.Email,
+                Location = new Point(20, y),
+                Size = new Size(440, 26),
+                Font = new Font("Inter", 10F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252)
+            };
+            dialog.Controls.Add(txtEmail);
+            y += 44;
+
+            // Row 3: Department
+            var deptLabel = new Label
+            {
+                Text = "Department *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            dialog.Controls.Add(deptLabel);
+            y += 20;
+
+            var cmbDepartment = new ComboBox
+            {
+                Location = new Point(20, y),
+                Size = new Size(200, 26),
+                Font = new Font("Inter", 10F),
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            cmbDepartment.Items.AddRange(new[] { "BSIT", "BSCS", "BSCE", "BSEE", "BSME", "BSN", "BSA", "BSBA", "Education", "Science", "Engineering", "Other" });
+            cmbDepartment.SelectedItem = teacher.Department ?? "BSIT";
+            dialog.Controls.Add(cmbDepartment);
+            y += 44;
+
+            // Row 4: Section | Course | Year Level
+            var sectionLabel = new Label
+            {
+                Text = "Section",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            dialog.Controls.Add(sectionLabel);
+
+            var courseLabel2 = new Label
+            {
+                Text = "Course *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(160, y)
+            };
+            dialog.Controls.Add(courseLabel2);
+
+            var yearLevelLabel = new Label
+            {
+                Text = "Year Level *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(320, y)
+            };
+            dialog.Controls.Add(yearLevelLabel);
+            y += 20;
+
+            var txtSection = new TextBox
+            {
+                Text = teacher.Section,
+                Location = new Point(20, y),
+                Size = new Size(120, 26),
+                Font = new Font("Inter", 10F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252)
+            };
+            dialog.Controls.Add(txtSection);
+
+            var txtCourse = new TextBox
+            {
+                Text = teacher.Course,
+                Location = new Point(160, y),
+                Size = new Size(140, 26),
+                Font = new Font("Inter", 10F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252)
+            };
+            dialog.Controls.Add(txtCourse);
+
+            var txtYearLevel = new TextBox
+            {
+                Text = teacher.YearLevel,
+                Location = new Point(320, y),
+                Size = new Size(140, 26),
+                Font = new Font("Inter", 10F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252)
+            };
+            dialog.Controls.Add(txtYearLevel);
+            y += 44;
+
+            // Row 5: Subjects
+            var subjectsLabel = new Label
+            {
+                Text = "Subjects (comma-separated) *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            dialog.Controls.Add(subjectsLabel);
+            y += 20;
+
+            var txtSubjects = new TextBox
+            {
+                Text = string.Join(", ", teacher.Subjects),
+                Location = new Point(20, y),
+                Size = new Size(440, 26),
+                Font = new Font("Inter", 10F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252)
+            };
+            dialog.Controls.Add(txtSubjects);
+            y += 48;
+
+            // Buttons
+            var cancelBtn = new Button
+            {
+                Text = "Cancel",
+                BackColor = Color.FromArgb(243, 244, 246),
+                ForeColor = Color.FromArgb(55, 65, 81),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(90, 36),
+                Location = new Point(268, y)
+            };
+            cancelBtn.Click += (_, _) => dialog.Close();
+
+            var saveBtn = new Button
+            {
+                Text = "Save Changes",
+                BackColor = Color.FromArgb(38, 166, 91),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(110, 36),
+                Location = new Point(370, y)
+            };
+            saveBtn.Click += (_, _) =>
+            {
+                if (ValidateTeacherEditInput(txtFirstName.Text, txtLastName.Text, txtEmail.Text, txtCourse.Text, txtYearLevel.Text, txtSubjects.Text))
+                {
+                    teacher.FirstName = txtFirstName.Text.Trim();
+                    teacher.LastName = txtLastName.Text.Trim();
+                    teacher.Email = txtEmail.Text.Trim();
+                    teacher.Department = cmbDepartment.SelectedItem?.ToString() ?? "";
+                    teacher.Section = txtSection.Text.Trim();
+                    teacher.Course = txtCourse.Text.Trim();
+                    teacher.YearLevel = txtYearLevel.Text.Trim();
+                    teacher.Subjects = txtSubjects.Text.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+
+                    try
+                    {
+                        TeacherStore.UpdateTeacher(teacher);
+                        MessageBox.Show("Teacher updated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        dialog.Close();
+                        LoadTeachersView();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error updating teacher: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            };
+
+            dialog.Controls.Add(cancelBtn);
+            dialog.Controls.Add(saveBtn);
+
+            dialog.ShowDialog(this);
+        }
+
+        private bool ValidateTeacherEditInput(string firstName, string lastName, string email, string course, string yearLevel, string subjects)
+        {
+            if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+            {
+                MessageBox.Show("Please enter both first and last name.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(email) || !email.Contains("@"))
+            {
+                MessageBox.Show("Please enter a valid email address.", "Invalid Email", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(course))
+            {
+                MessageBox.Show("Please enter the course.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(yearLevel))
+            {
+                MessageBox.Show("Please enter the year level.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(subjects))
+            {
+                MessageBox.Show("Please enter at least one subject.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            return true;
+        }
+
         private void ShowAddTeacherForm()
         {
             // Show add teacher form panel inline
             var dialog = new Form
             {
                 Text = "Add New Teacher",
-                Size = new Size(500, 380),
+                Size = new Size(500, 480),
                 StartPosition = FormStartPosition.CenterParent,
                 BackColor = Color.White,
                 FormBorderStyle = FormBorderStyle.FixedDialog,
@@ -1598,6 +1944,63 @@ namespace EvaluaTeach
             dialog.Controls.Add(subjectsInput);
             y += 48;
 
+            // Row 5: Section | Course | Year Level (for student matching)
+            var sectionLabel = new Label
+            {
+                Text = "Section (for student matching)",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            dialog.Controls.Add(sectionLabel);
+
+            var courseLabel2 = new Label
+            {
+                Text = "Course *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(160, y)
+            };
+            dialog.Controls.Add(courseLabel2);
+
+            var yearLevelLabel = new Label
+            {
+                Text = "Year Level *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(320, y)
+            };
+            dialog.Controls.Add(yearLevelLabel);
+            y += 20;
+
+            teacherSectionInput.PlaceholderText = "e.g. A";
+            teacherSectionInput.Location = new Point(20, y);
+            teacherSectionInput.Size = new Size(120, 26);
+            teacherSectionInput.Font = new Font("Inter", 10F);
+            teacherSectionInput.BorderStyle = BorderStyle.FixedSingle;
+            teacherSectionInput.BackColor = Color.FromArgb(248, 250, 252);
+            dialog.Controls.Add(teacherSectionInput);
+
+            teacherCourseInput.PlaceholderText = "e.g. BSIT";
+            teacherCourseInput.Location = new Point(160, y);
+            teacherCourseInput.Size = new Size(140, 26);
+            teacherCourseInput.Font = new Font("Inter", 10F);
+            teacherCourseInput.BorderStyle = BorderStyle.FixedSingle;
+            teacherCourseInput.BackColor = Color.FromArgb(248, 250, 252);
+            dialog.Controls.Add(teacherCourseInput);
+
+            teacherYearLevelInput.PlaceholderText = "e.g. 2";
+            teacherYearLevelInput.Location = new Point(320, y);
+            teacherYearLevelInput.Size = new Size(140, 26);
+            teacherYearLevelInput.Font = new Font("Inter", 10F);
+            teacherYearLevelInput.BorderStyle = BorderStyle.FixedSingle;
+            teacherYearLevelInput.BackColor = Color.FromArgb(248, 250, 252);
+            dialog.Controls.Add(teacherYearLevelInput);
+            y += 48;
+
             // Buttons
             var cancelBtn = new Button
             {
@@ -1667,6 +2070,9 @@ namespace EvaluaTeach
             string password = passwordInput.Text;
             string department = departmentSelector.SelectedItem?.ToString() ?? "";
             string subjectsText = subjectsInput.Text.Trim();
+            string section = teacherSectionInput.Text.Trim();
+            string course = teacherCourseInput.Text.Trim();
+            string yearLevel = teacherYearLevelInput.Text.Trim();
 
             if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
             {
@@ -1692,6 +2098,18 @@ namespace EvaluaTeach
                 return false;
             }
 
+            if (string.IsNullOrWhiteSpace(course))
+            {
+                MessageBox.Show("Please enter the course this teacher is assigned to.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(yearLevel))
+            {
+                MessageBox.Show("Please enter the year level this teacher is assigned to.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
             if (TeacherStore.EmailExists(email))
             {
                 MessageBox.Show("A teacher with this email already exists.", "Duplicate Email", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -1706,6 +2124,9 @@ namespace EvaluaTeach
                 LastName = lastName,
                 Email = email,
                 Department = department,
+                Section = section,
+                Course = course,
+                YearLevel = yearLevel,
                 Subjects = subjects
             };
 
@@ -1720,6 +2141,9 @@ namespace EvaluaTeach
                 emailInput.Clear();
                 passwordInput.Clear();
                 subjectsInput.Clear();
+                teacherSectionInput.Clear();
+                teacherCourseInput.Clear();
+                teacherYearLevelInput.Clear();
                 departmentSelector.SelectedIndex = 0;
 
                 return true;
@@ -1729,6 +2153,800 @@ namespace EvaluaTeach
                 MessageBox.Show($"Error adding teacher: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
+        }
+
+        private void ShowStudentManagement()
+        {
+            showingDashboard = false;
+            showingResponses = false;
+            showingTeachers = false;
+            showingStudents = true;
+            UpdateNavButtons();
+            titleLabel.Text = "Student Management";
+            createFormBtn.Visible = false;
+            dashboardSubtitleLabel.Visible = false;
+            responsesSubtitleLabel.Visible = false;
+            statsLabel1.Visible = false;
+            statsLabel2.Visible = false;
+            statsLabel3.Visible = false;
+            formsListPanel.Visible = false;
+            teachersListPanel.Visible = true;
+            LoadStudentsView();
+        }
+
+        private void LoadStudentsView()
+        {
+            teachersListPanel.Controls.Clear();
+            var students = StudentStore.GetAllStudents();
+
+            // Header section
+            var headerPanel = new Panel
+            {
+                BackColor = Color.White,
+                Size = new Size(teachersListPanel.Width - 40, 140),
+                Margin = new Padding(0, 0, 0, 16),
+                Padding = new Padding(24)
+            };
+
+            var titleLabel = new Label
+            {
+                Text = "All Students",
+                Font = new Font("Inter", 16F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(24, 20)
+            };
+
+            var statsText = $"{students.Count} Total Students";
+            if (students.Count > 0)
+            {
+                var courses = students.Select(s => s.Course).Distinct().Count();
+                var yearLevels = students.Select(s => s.YearLevel).Distinct().Count();
+                statsText += $"  ·  {courses} Courses  ·  {yearLevels} Year Levels";
+            }
+
+            var statsLabel = new Label
+            {
+                Text = statsText,
+                Font = new Font("Inter", 10F),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                AutoSize = true,
+                Location = new Point(24, 50)
+            };
+
+            // Add Student button in header
+            var addBtn = new Button
+            {
+                Text = "+ Add New Student",
+                BackColor = Color.FromArgb(38, 166, 91),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(160, 40),
+                Location = new Point(headerPanel.Width - 184, 50),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Cursor = Cursors.Hand
+            };
+            addBtn.Click += (_, _) => AddStudent();
+
+            headerPanel.Controls.Add(titleLabel);
+            headerPanel.Controls.Add(statsLabel);
+            headerPanel.Controls.Add(addBtn);
+            headerPanel.Resize += (_, _) => addBtn.Location = new Point(headerPanel.Width - 184, 50);
+
+            teachersListPanel.Controls.Add(headerPanel);
+
+            if (students.Count == 0)
+            {
+                var emptyPanel = new Panel
+                {
+                    BackColor = Color.White,
+                    Size = new Size(teachersListPanel.Width - 40, 200),
+                    Margin = new Padding(0, 16, 0, 0)
+                };
+
+                var emptyIcon = new Label
+                {
+                    Text = "🎓",
+                    Font = new Font("Segoe UI", 48F),
+                    AutoSize = true,
+                    Location = new Point((emptyPanel.Width - 60) / 2, 40)
+                };
+
+                var emptyLabel = new Label
+                {
+                    Text = "No students added yet",
+                    Font = new Font("Inter", 14F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(71, 85, 105),
+                    AutoSize = true,
+                    Location = new Point((emptyPanel.Width - 200) / 2, 110)
+                };
+
+                var emptySubLabel = new Label
+                {
+                    Text = "Click '+ Add New Student' to add your first student",
+                    Font = new Font("Inter", 10F),
+                    ForeColor = Color.FromArgb(148, 163, 184),
+                    AutoSize = true,
+                    Location = new Point((emptyPanel.Width - 350) / 2, 140)
+                };
+
+                emptyPanel.Controls.Add(emptyIcon);
+                emptyPanel.Controls.Add(emptyLabel);
+                emptyPanel.Controls.Add(emptySubLabel);
+                teachersListPanel.Controls.Add(emptyPanel);
+                return;
+            }
+
+            foreach (var student in students)
+            {
+                var card = CreateStudentCard(student);
+                teachersListPanel.Controls.Add(card);
+            }
+        }
+
+        private Panel CreateStudentCard(Student student)
+        {
+            var card = new Panel
+            {
+                BackColor = Color.White,
+                Size = new Size(teachersListPanel.Width - 40, 130),
+                Margin = new Padding(0, 0, 0, 12),
+                Padding = new Padding(20)
+            };
+
+            // Green accent bar
+            var accentBar = new Panel
+            {
+                BackColor = Color.FromArgb(38, 166, 91),
+                Size = new Size(4, card.Height),
+                Location = new Point(0, 0)
+            };
+
+            // Avatar - show profile picture if available, otherwise initials
+            Control avatar;
+            if (student.Avatar != null && student.Avatar.Length > 0)
+            {
+                using var ms = new System.IO.MemoryStream(student.Avatar);
+                var img = Image.FromStream(ms);
+                avatar = new PictureBox
+                {
+                    Image = new Bitmap(img, new Size(50, 50)),
+                    Size = new Size(50, 50),
+                    Location = new Point(20, 20),
+                    SizeMode = PictureBoxSizeMode.StretchImage,
+                    BackColor = Color.Transparent
+                };
+                img.Dispose();
+            }
+            else
+            {
+                var avatarPanel = new Panel
+                {
+                    BackColor = Color.FromArgb(38, 166, 91),
+                    Size = new Size(50, 50),
+                    Location = new Point(20, 20)
+                };
+                var initials = GetInitials($"{student.FirstName} {student.LastName}");
+                var initialsLabel = new Label
+                {
+                    Text = initials,
+                    Font = new Font("Inter SemiBold", 14F, FontStyle.Bold),
+                    ForeColor = Color.White,
+                    AutoSize = false,
+                    Size = new Size(50, 50),
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Location = new Point(0, 0)
+                };
+                avatarPanel.Controls.Add(initialsLabel);
+                avatar = avatarPanel;
+            }
+
+            // Name
+            var nameLabel = new Label
+            {
+                Text = $"{student.FirstName} {student.LastName}",
+                Font = new Font("Inter SemiBold", 14F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                MaximumSize = new Size(card.Width - 290, 0),
+                Location = new Point(85, 20)
+            };
+
+            // ID
+            var idLabel = new Label
+            {
+                Text = $"ID: {student.IDNumber}",
+                Font = new Font("Inter", 10F),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                AutoSize = true,
+                Location = new Point(85, 48)
+            };
+
+            // Email
+            var emailLabel = new Label
+            {
+                Text = student.Email,
+                Font = new Font("Inter", 10F),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                AutoSize = true,
+                MaximumSize = new Size(card.Width - 290, 0),
+                Location = new Point(85, 66)
+            };
+
+            // Course, Year, and Section
+            var sectionText = string.IsNullOrEmpty(student.Section) ? "N/A" : student.Section;
+            var courseLabel = new Label
+            {
+                Text = $"{student.Course} - Year {student.YearLevel} - Section {sectionText}",
+                Font = new Font("Inter", 10F),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                AutoSize = true,
+                MaximumSize = new Size(card.Width - 290, 0),
+                Location = new Point(85, 84)
+            };
+
+            // Action buttons - positioned below text info
+            var editButton = new Button
+            {
+                Text = "Edit",
+                BackColor = Color.FromArgb(59, 130, 246),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                Size = new Size(60, 32),
+                Location = new Point(card.Width - 245, 70),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Cursor = Cursors.Hand
+            };
+            editButton.Click += (_, _) => EditStudent(student);
+
+            var viewTeachersButton = new Button
+            {
+                Text = "Teachers",
+                BackColor = Color.FromArgb(38, 166, 91),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                Size = new Size(80, 32),
+                Location = new Point(card.Width - 170, 70),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Cursor = Cursors.Hand
+            };
+            viewTeachersButton.Click += (_, _) => ViewStudentTeachers(student);
+
+            var deleteButton = new Button
+            {
+                Text = "Delete",
+                BackColor = Color.FromArgb(220, 38, 38),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                Size = new Size(70, 32),
+                Location = new Point(card.Width - 85, 70),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Cursor = Cursors.Hand
+            };
+            deleteButton.Click += (_, _) => DeleteStudent(student);
+
+            card.Resize += (_, _) =>
+            {
+                editButton.Location = new Point(card.Width - 245, 70);
+                viewTeachersButton.Location = new Point(card.Width - 170, 70);
+                deleteButton.Location = new Point(card.Width - 85, 70);
+                nameLabel.MaximumSize = new Size(card.Width - 290, 0);
+                emailLabel.MaximumSize = new Size(card.Width - 290, 0);
+                courseLabel.MaximumSize = new Size(card.Width - 290, 0);
+            };
+
+            card.Controls.AddRange(new Control[] { accentBar, avatar, nameLabel, idLabel, emailLabel, courseLabel, editButton, viewTeachersButton, deleteButton });
+
+            return card;
+        }
+
+        private void AddStudent()
+        {
+            var dialog = new Form
+            {
+                Text = "Add New Student",
+                StartPosition = FormStartPosition.CenterParent,
+                BackColor = Color.FromArgb(241, 245, 249),
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                Size = new Size(500, 500),
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            int y = 24;
+
+            // ID Number
+            var lblId = new Label { Text = "ID Number:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblId);
+            y += 24;
+
+            var txtId = new TextBox { Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(400, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtId);
+            y += 48;
+
+            // First Name
+            var lblFirstName = new Label { Text = "First Name:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblFirstName);
+            y += 24;
+
+            var txtFirstName = new TextBox { Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(400, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtFirstName);
+            y += 48;
+
+            // Last Name
+            var lblLastName = new Label { Text = "Last Name:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblLastName);
+            y += 24;
+
+            var txtLastName = new TextBox { Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(400, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtLastName);
+            y += 48;
+
+            // Email
+            var lblEmail = new Label { Text = "Email:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblEmail);
+            y += 24;
+
+            var txtEmail = new TextBox { Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(400, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtEmail);
+            y += 48;
+
+            // Course
+            var lblCourse = new Label { Text = "Course:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblCourse);
+            y += 24;
+
+            var txtCourse = new TextBox { Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(400, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtCourse);
+            y += 48;
+
+            // Year Level
+            var lblYear = new Label { Text = "Year Level:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblYear);
+            y += 24;
+
+            var txtYear = new TextBox { Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(100, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtYear);
+
+            var lblSection = new Label { Text = "Section:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(150, y - 24), AutoSize = true };
+            dialog.Controls.Add(lblSection);
+
+            var txtSection = new TextBox { Font = new Font("Inter", 11F), Location = new Point(150, y), Size = new Size(100, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtSection);
+            y += 48;
+
+            // Password
+            var lblPassword = new Label { Text = "Password:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblPassword);
+            y += 24;
+
+            var txtPassword = new TextBox { Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(400, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle, UseSystemPasswordChar = true };
+            dialog.Controls.Add(txtPassword);
+
+            // Buttons
+            var btnCancel = new Button
+            {
+                Text = "Cancel",
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(226, 232, 240),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(100, 36),
+                Location = new Point(280, 420)
+            };
+            btnCancel.FlatAppearance.BorderSize = 0;
+            btnCancel.Click += (_, _) => dialog.Close();
+            dialog.Controls.Add(btnCancel);
+
+            var btnSave = new Button
+            {
+                Text = "Save",
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(38, 166, 91),
+                ForeColor = Color.White,
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(100, 36),
+                Location = new Point(390, 420)
+            };
+            btnSave.FlatAppearance.BorderSize = 0;
+            btnSave.Click += (_, _) =>
+            {
+                if (ValidateStudentInput(txtId.Text, txtFirstName.Text, txtLastName.Text, txtEmail.Text, txtCourse.Text, txtYear.Text, txtSection.Text, txtPassword.Text))
+                {
+                    var student = new Student
+                    {
+                        IDNumber = txtId.Text,
+                        FirstName = txtFirstName.Text,
+                        LastName = txtLastName.Text,
+                        Email = txtEmail.Text,
+                        Course = txtCourse.Text,
+                        YearLevel = txtYear.Text,
+                        Section = txtSection.Text
+                    };
+
+                    try
+                    {
+                        StudentStore.AddStudent(student, txtPassword.Text);
+                        MessageBox.Show("Student added successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        dialog.Close();
+                        LoadStudentsView(); // Refresh the list
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error adding student: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            };
+            dialog.Controls.Add(btnSave);
+
+            dialog.ShowDialog(this);
+        }
+
+        private void EditStudent(Student student)
+        {
+            var dialog = new Form
+            {
+                Text = "Edit Student",
+                StartPosition = FormStartPosition.CenterParent,
+                BackColor = Color.FromArgb(241, 245, 249),
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                Size = new Size(500, 480),
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            int y = 24;
+
+            // First Name
+            var lblFirstName = new Label { Text = "First Name:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblFirstName);
+            y += 24;
+
+            var txtFirstName = new TextBox { Text = student.FirstName, Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(400, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtFirstName);
+            y += 48;
+
+            // Last Name
+            var lblLastName = new Label { Text = "Last Name:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblLastName);
+            y += 24;
+
+            var txtLastName = new TextBox { Text = student.LastName, Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(400, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtLastName);
+            y += 48;
+
+            // Email
+            var lblEmail = new Label { Text = "Email:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblEmail);
+            y += 24;
+
+            var txtEmail = new TextBox { Text = student.Email, Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(400, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtEmail);
+            y += 48;
+
+            // Course
+            var lblCourse = new Label { Text = "Course:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblCourse);
+            y += 24;
+
+            var txtCourse = new TextBox { Text = student.Course, Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(400, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtCourse);
+            y += 48;
+
+            // Year Level
+            var lblYear = new Label { Text = "Year Level:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(32, y), AutoSize = true };
+            dialog.Controls.Add(lblYear);
+            y += 24;
+
+            var txtYear = new TextBox { Text = student.YearLevel, Font = new Font("Inter", 11F), Location = new Point(32, y), Size = new Size(100, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtYear);
+
+            var lblSection = new Label { Text = "Section:", Font = new Font("Inter SemiBold", 10F), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(150, y - 24), AutoSize = true };
+            dialog.Controls.Add(lblSection);
+
+            var txtSection = new TextBox { Text = student.Section, Font = new Font("Inter", 11F), Location = new Point(150, y), Size = new Size(100, 28), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+            dialog.Controls.Add(txtSection);
+
+            // Buttons
+            var btnCancel = new Button
+            {
+                Text = "Cancel",
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(226, 232, 240),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(100, 36),
+                Location = new Point(280, 370)
+            };
+            btnCancel.FlatAppearance.BorderSize = 0;
+            btnCancel.Click += (_, _) => dialog.Close();
+            dialog.Controls.Add(btnCancel);
+
+            var btnSave = new Button
+            {
+                Text = "Save",
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(38, 166, 91),
+                ForeColor = Color.White,
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(100, 36),
+                Location = new Point(390, 370)
+            };
+            btnSave.FlatAppearance.BorderSize = 0;
+            btnSave.Click += (_, _) =>
+            {
+                if (ValidateStudentEditInput(txtFirstName.Text, txtLastName.Text, txtEmail.Text, txtCourse.Text, txtYear.Text, txtSection.Text))
+                {
+                    student.FirstName = txtFirstName.Text;
+                    student.LastName = txtLastName.Text;
+                    student.Email = txtEmail.Text;
+                    student.Course = txtCourse.Text;
+                    student.YearLevel = txtYear.Text;
+                    student.Section = txtSection.Text;
+
+                    try
+                    {
+                        StudentStore.UpdateStudent(student);
+                        MessageBox.Show("Student updated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        dialog.Close();
+                        LoadStudentsView(); // Refresh the list
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error updating student: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            };
+            dialog.Controls.Add(btnSave);
+
+            dialog.ShowDialog(this);
+        }
+
+        private void DeleteStudent(Student student)
+        {
+            var result = MessageBox.Show($"Are you sure you want to delete student '{student.FirstName} {student.LastName}'?", "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            
+            if (result == DialogResult.Yes)
+            {
+                try
+                {
+                    StudentStore.DeleteStudent(student.StudentID);
+                    MessageBox.Show("Student deleted successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    LoadStudentsView(); // Refresh the list
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error deleting student: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void ViewStudentTeachers(Student student)
+        {
+            var dialog = new Form
+            {
+                Text = $"Teachers for {student.FirstName} {student.LastName}",
+                StartPosition = FormStartPosition.CenterParent,
+                BackColor = Color.FromArgb(241, 245, 249),
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                Size = new Size(500, 400),
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            // Header
+            var headerPanel = new Panel
+            {
+                BackColor = Color.White,
+                Size = new Size(464, 80),
+                Location = new Point(16, 16)
+            };
+
+            var studentInfoLabel = new Label
+            {
+                Text = $"{student.FirstName} {student.LastName} - {student.Course} Year {student.YearLevel}",
+                Font = new Font("Inter SemiBold", 12F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(16, 12)
+            };
+
+            var sectionLabel = new Label
+            {
+                Text = $"Section: {student.DisplaySection} | ID: {student.IDNumber}",
+                Font = new Font("Inter", 10F),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                AutoSize = true,
+                Location = new Point(16, 38)
+            };
+
+            headerPanel.Controls.Add(studentInfoLabel);
+            headerPanel.Controls.Add(sectionLabel);
+            dialog.Controls.Add(headerPanel);
+
+            // Teachers list
+            var listPanel = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = true,
+                BackColor = Color.Transparent,
+                Location = new Point(16, 104),
+                Size = new Size(464, 250)
+            };
+
+            var teachers = TeacherStore.GetTeachersForStudent(student.Section, student.Course, student.YearLevel);
+
+            if (teachers.Count == 0)
+            {
+                var emptyLabel = new Label
+                {
+                    Text = "No teachers assigned for this student's section/course/year.",
+                    Font = new Font("Inter", 10F),
+                    ForeColor = Color.FromArgb(148, 163, 184),
+                    AutoSize = true,
+                    Location = new Point(0, 20)
+                };
+                listPanel.Controls.Add(emptyLabel);
+            }
+            else
+            {
+                foreach (var teacher in teachers)
+                {
+                    var teacherCard = CreateTeacherCard(teacher, listPanel.Width - 20);
+                    listPanel.Controls.Add(teacherCard);
+                }
+            }
+
+            dialog.Controls.Add(listPanel);
+
+            // Close button
+            var closeBtn = new Button
+            {
+                Text = "Close",
+                BackColor = Color.FromArgb(59, 130, 246),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(100, 36),
+                Location = new Point(380, 360)
+            };
+            closeBtn.Click += (_, _) => dialog.Close();
+            dialog.Controls.Add(closeBtn);
+
+            dialog.ShowDialog(this);
+        }
+
+        private Panel CreateTeacherCard(Teacher teacher, int width)
+        {
+            var card = new Panel
+            {
+                BackColor = Color.White,
+                Size = new Size(width, 70),
+                Margin = new Padding(0, 0, 0, 8)
+            };
+
+            // Accent bar
+            var accentBar = new Panel
+            {
+                BackColor = Color.FromArgb(59, 130, 246),
+                Size = new Size(4, card.Height),
+                Location = new Point(0, 0)
+            };
+
+            // Avatar with initials
+            var avatar = new Panel
+            {
+                BackColor = Color.FromArgb(59, 130, 246),
+                Size = new Size(40, 40),
+                Location = new Point(16, 15)
+            };
+
+            var initials = GetInitials(teacher.FullName);
+            var initialsLabel = new Label
+            {
+                Text = initials,
+                Font = new Font("Inter SemiBold", 12F, FontStyle.Bold),
+                ForeColor = Color.White,
+                AutoSize = false,
+                Size = new Size(40, 40),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Location = new Point(0, 0)
+            };
+            avatar.Controls.Add(initialsLabel);
+
+            // Name
+            var nameLabel = new Label
+            {
+                Text = teacher.FullName,
+                Font = new Font("Inter SemiBold", 12F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(68, 12)
+            };
+
+            // Department/Subjects
+            var deptLabel = new Label
+            {
+                Text = $"{teacher.Department} | {teacher.SubjectsDisplay}",
+                Font = new Font("Inter", 9F),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                AutoSize = true,
+                MaximumSize = new Size(card.Width - 100, 0),
+                Location = new Point(68, 34)
+            };
+
+            card.Controls.Add(accentBar);
+            card.Controls.Add(avatar);
+            card.Controls.Add(nameLabel);
+            card.Controls.Add(deptLabel);
+
+            return card;
+        }
+
+        private bool ValidateStudentInput(string id, string firstName, string lastName, string email, string course, string year, string section, string password)
+        {
+            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName) || 
+                string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(course) || string.IsNullOrWhiteSpace(year) || 
+                string.IsNullOrWhiteSpace(section) || string.IsNullOrWhiteSpace(password))
+            {
+                MessageBox.Show("All fields are required.", "Required Fields", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (!email.Contains("@"))
+            {
+                MessageBox.Show("Please enter a valid email address.", "Invalid Email", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (password.Length < 6)
+            {
+                MessageBox.Show("Password must be at least 6 characters long.", "Weak Password", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (StudentStore.EmailExists(email))
+            {
+                MessageBox.Show("A student with this email already exists.", "Duplicate Email", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (StudentStore.IdExists(id))
+            {
+                MessageBox.Show("A student with this ID already exists.", "Duplicate ID", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool ValidateStudentEditInput(string firstName, string lastName, string email, string course, string year, string section)
+        {
+            if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName) || 
+                string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(course) || string.IsNullOrWhiteSpace(year) || 
+                string.IsNullOrWhiteSpace(section))
+            {
+                MessageBox.Show("All fields are required.", "Required Fields", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (!email.Contains("@"))
+            {
+                MessageBox.Show("Please enter a valid email address.", "Invalid Email", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            return true;
         }
     }
 }

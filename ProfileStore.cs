@@ -53,41 +53,53 @@ namespace EvaluaTeach
             ProfileUpdated?.Invoke();
         }
 
-        public static void SetAvatar(Image? image)
+        public static bool SetAvatar(Image? image)
         {
             if (image == null)
-                return;
+                return false;
 
-            // Store full-size version (capped at 2000px to prevent huge files)
-            const int maxSize = 2000;
+            // Resize to smaller size for database (max 300x300 to stay under packet limit)
+            const int maxSize = 300;
+            Bitmap resizedImage;
             if (image.Width > maxSize || image.Height > maxSize)
             {
-                int fullWidth, fullHeight;
+                int newWidth, newHeight;
                 if (image.Width > image.Height)
                 {
-                    fullWidth = maxSize;
-                    fullHeight = (int)(image.Height * ((double)maxSize / image.Width));
+                    newWidth = maxSize;
+                    newHeight = (int)(image.Height * ((double)maxSize / image.Width));
                 }
                 else
                 {
-                    fullHeight = maxSize;
-                    fullWidth = (int)(image.Width * ((double)maxSize / image.Height));
+                    newHeight = maxSize;
+                    newWidth = (int)(image.Width * ((double)maxSize / image.Height));
                 }
-                FullSizeAvatar = new Bitmap(image, new Size(fullWidth, fullHeight));
+                resizedImage = new Bitmap(image, new Size(newWidth, newHeight));
             }
             else
             {
-                FullSizeAvatar = new Bitmap(image);
+                resizedImage = new Bitmap(image);
             }
 
-            // Create 84x84 thumbnail for profile display
-            Avatar = new Bitmap(image, new Size(84, 84));
-
-            // Save to database if we have a student ID
+            // Save to database first - only update UI if successful
             if (DatabaseStudentId.HasValue)
             {
-                SaveAvatarToDatabase(FullSizeAvatar);
+                if (!SaveAvatarToDatabase(resizedImage))
+                {
+                    resizedImage.Dispose();
+                    return false; // Save failed, don't update UI
+                }
             }
+
+            // Only update UI after successful save
+            FullSizeAvatar?.Dispose();
+            FullSizeAvatar = new Bitmap(resizedImage);
+            
+            Avatar?.Dispose();
+            Avatar = new Bitmap(resizedImage, new Size(84, 84));
+            
+            resizedImage.Dispose();
+            return true;
         }
 
         public static void EnsureAvatarColumnExists()
@@ -149,31 +161,57 @@ namespace EvaluaTeach
             }
         }
 
-        private static void SaveAvatarToDatabase(Image image)
+        private static bool SaveAvatarToDatabase(Image image)
         {
-            if (!DatabaseStudentId.HasValue) return;
+            if (!DatabaseStudentId.HasValue)
+            {
+                MessageBox.Show("Cannot save avatar: No student ID available.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
 
             try
             {
                 EnsureAvatarColumnExists();
 
                 using var ms = new MemoryStream();
-                image.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                // Use JPEG with lower quality for smaller size
+                var encoder = System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders()
+                    .FirstOrDefault(c => c.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid);
+                if (encoder != null)
+                {
+                    var encoderParams = new System.Drawing.Imaging.EncoderParameters(1);
+                    encoderParams.Param[0] = new System.Drawing.Imaging.EncoderParameter(
+                        System.Drawing.Imaging.Encoder.Quality, 85L);
+                    image.Save(ms, encoder, encoderParams);
+                }
+                else
+                {
+                    image.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                }
                 var avatarBytes = ms.ToArray();
 
                 using var conn = Database.GetConnection();
                 conn.Open();
 
                 var cmd = new MySqlCommand(
-                    "UPDATE Student SET Avatar = @avatar WHERE StudentID = @studentId",
+                    "UPDATE student SET Avatar = @avatar WHERE StudentID = @studentId",
                     conn);
                 cmd.Parameters.AddWithValue("@avatar", avatarBytes);
                 cmd.Parameters.AddWithValue("@studentId", DatabaseStudentId.Value);
-                cmd.ExecuteNonQuery();
+                var rowsAffected = cmd.ExecuteNonQuery();
+                
+                if (rowsAffected == 0)
+                {
+                    MessageBox.Show("Avatar was not saved: No matching student found in database.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+                
+                return true;
             }
-            catch
+            catch (Exception ex)
             {
-                // Silently fail if avatar can't be saved
+                MessageBox.Show($"Error saving avatar: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
         }
 
