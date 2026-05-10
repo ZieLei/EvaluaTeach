@@ -28,7 +28,7 @@
 
 
 
-notification page is fully static.. it should reflect actual shit
+~~notification page is fully static.. it should reflect actual shit~~
 
 
 
@@ -92,7 +92,7 @@ search functionality is missing (low priority)
 
 
 
-the admin should be able to add new teachers with their login infos (later)
+~~the admin should be able to add new teachers with their login infos~~ (later)
 
 
 
@@ -116,15 +116,15 @@ the admin should be able to add new courses
 
 
 
-admin logout button is clipping the button put it a little higher
+~~admin logout button is clipping the button put it a little higher~~
 
 
 
-login card is off putting make it more centered with space on the sides plus the top is way too spaced as if it has a forehead
+~~login card is off putting make it more centered with space on the sides plus the top is way too spaced as if it has a forehead~~
 
 
 
-when saving an edit of a form it should also prompt a warning that existing responses for said form will be removed 
+~~when saving an edit of a form it should also prompt a warning that existing responses for said form will be removed~~
 
 
 
@@ -136,11 +136,27 @@ when saving an edit of a form it should also prompt a warning that existing resp
 
 
 
+~~the date is clipping the clock icon in view responses window~~
+
+
+
+~~"n forms with responses . n total submissions" is clipping "Responses Overview"~~
+
+
+
+admin dashboard form cards starts as short and not full width
+
+
+
 database integration
 
 
 
 ~~editing a form then saving does not update the form~~
+
+
+
+logging in should be dynamic meaning the system will auto detect if the details is admin or student without having a whole drop down section to log in as either admin or student
 
 
 

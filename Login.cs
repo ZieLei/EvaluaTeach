@@ -233,7 +233,13 @@ namespace EvaluaTeach
                 string meta = isAdmin ? "Administrator" : $"Student {course}";
 
                 SessionStore.Login(userId, numericId, name, email, role);
-                ProfileStore.UpdateProfile(name, meta, email, userId);
+                ProfileStore.UpdateProfile(name, meta, email, userId, numericId);
+
+                // Load avatar from database for students
+                if (!isAdmin && numericId.HasValue)
+                {
+                    ProfileStore.LoadAvatarFromDatabase(numericId.Value);
+                }
 
                 FormDataStore.SeedSampleData();
 

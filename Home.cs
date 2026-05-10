@@ -68,11 +68,10 @@ namespace EvaluaTeach
 
             if (ProfileStore.Avatar != null)
             {
-                // show a scaled copy in the header avatar button
+                // show avatar directly without any resizing
                 try
                 {
-                    var avatarCopy = new Bitmap(ProfileStore.Avatar, button7.Size);
-                    button7.BackgroundImage = avatarCopy;
+                    button7.BackgroundImage = ProfileStore.Avatar;
                     button7.BackgroundImageLayout = ImageLayout.Zoom;
                     button7.Text = string.Empty;
                 }
@@ -475,7 +474,7 @@ namespace EvaluaTeach
                     (isNew ? "New form: " : "Form: ") + form.Title,
                     $"An evaluation form targeting {courseStr} is now available.{dueStr}",
                     timeStr,
-                    isNew ? Color.FromArgb(37, 99, 235) : Color.FromArgb(100, 116, 139)));
+                    isNew ? Color.FromArgb(38, 166, 91) : Color.FromArgb(100, 116, 139)));
             }
 
             foreach (var sub in completed.OrderByDescending(f => f.CreatedAt).Take(3))
@@ -810,22 +809,18 @@ namespace EvaluaTeach
         {
             if (string.IsNullOrWhiteSpace(fullName))
             {
-                return "MJ";
+                return "?";
             }
 
-            string[] parts = fullName
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
+            var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0)
             {
-                return "MJ";
+                return "?";
             }
 
             if (parts.Length == 1)
             {
-                return parts[0].Length >= 2
-                    ? parts[0][..2].ToUpperInvariant()
-                    : parts[0].ToUpperInvariant();
+                return char.ToUpperInvariant(parts[0][0]).ToString();
             }
 
             return string.Concat(

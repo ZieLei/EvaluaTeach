@@ -5,6 +5,7 @@ using System.Data;
 using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
+using MySql.Data.MySqlClient;
 
 namespace EvaluaTeach
 {
@@ -221,6 +222,8 @@ namespace EvaluaTeach
             string fullName = textBoxFullName.Text.Trim();
             string email = textBoxEmail.Text.Trim();
             string program = comboBoxProgram.SelectedItem?.ToString() ?? "BSIT";
+            string yearLevel = comboBoxYearLevel.SelectedItem?.ToString() ?? "1st Year";
+            string section = textBoxSection.Text.Trim();
             string password = textBoxPassword.Text;
             string confirmPassword = textBoxConfirmPassword.Text;
 
@@ -254,9 +257,62 @@ namespace EvaluaTeach
                 return;
             }
 
+            // Parse year level number
+            int yearLevelNum = 1;
+            if (yearLevel.StartsWith("1st")) yearLevelNum = 1;
+            else if (yearLevel.StartsWith("2nd")) yearLevelNum = 2;
+            else if (yearLevel.StartsWith("3rd")) yearLevelNum = 3;
+            else if (yearLevel.StartsWith("4th")) yearLevelNum = 4;
+            else if (yearLevel.StartsWith("5th")) yearLevelNum = 5;
+
+            // Parse first and last name
+            var nameParts = fullName.Split(' ', 2);
+            string firstName = nameParts[0];
+            string lastName = nameParts.Length > 1 ? nameParts[1] : "";
+
+            // Save to database
+            int? databaseStudentId = null;
+            try
+            {
+                using var conn = Database.GetConnection();
+                conn.Open();
+
+                // Check if student ID already exists
+                var checkCmd = new MySqlCommand("SELECT COUNT(*) FROM Student WHERE IDNumber = @id", conn);
+                checkCmd.Parameters.AddWithValue("@id", studentId);
+                var existingCount = Convert.ToInt32(checkCmd.ExecuteScalar());
+
+                if (existingCount > 0)
+                {
+                    MessageBox.Show("A student with this ID already exists.", "Duplicate ID", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Insert new student
+                var insertCmd = new MySqlCommand(@"
+                    INSERT INTO Student (IDNumber, FirstName, LastName, Email, Course, YearLevel, Section, Password)
+                    VALUES (@idNumber, @firstName, @lastName, @email, @course, @yearLevel, @section, @password);
+                    SELECT LAST_INSERT_ID();", conn);
+                insertCmd.Parameters.AddWithValue("@idNumber", studentId);
+                insertCmd.Parameters.AddWithValue("@firstName", firstName);
+                insertCmd.Parameters.AddWithValue("@lastName", lastName);
+                insertCmd.Parameters.AddWithValue("@email", email);
+                insertCmd.Parameters.AddWithValue("@course", program);
+                insertCmd.Parameters.AddWithValue("@yearLevel", yearLevelNum);
+                insertCmd.Parameters.AddWithValue("@section", string.IsNullOrWhiteSpace(section) ? DBNull.Value : section);
+                insertCmd.Parameters.AddWithValue("@password", HashPassword(password));
+
+                databaseStudentId = Convert.ToInt32(insertCmd.ExecuteScalar());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error creating account: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
             string meta = $"Student {program}";
-            SessionStore.Login(studentId, null, fullName, email, UserRole.Student);
-            ProfileStore.UpdateProfile(fullName, meta, email, studentId);
+            SessionStore.Login(studentId, databaseStudentId, fullName, email, UserRole.Student);
+            ProfileStore.UpdateProfile(fullName, meta, email, studentId, databaseStudentId);
 
             FormDataStore.SeedSampleData();
 
@@ -264,6 +320,13 @@ namespace EvaluaTeach
                 "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             Program.NavigateTo(new Home());
+        }
+
+        private static string HashPassword(string password)
+        {
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+            var bytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+            return Convert.ToHexString(bytes).ToLower();
         }
     }
 }

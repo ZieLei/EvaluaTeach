@@ -43,6 +43,13 @@ namespace EvaluaTeach
             }
             // Update shared store so subscribers (Home) get the latest values
             ProfileStore.UpdateProfile(studentName, studentMeta, email, studentId);
+
+            // Load avatar from ProfileStore if available
+            if (ProfileStore.Avatar != null)
+            {
+                labelAvatar.Image = ProfileStore.Avatar;
+                labelAvatar.Text = string.Empty;
+            }
         }
 
         private void ConfigureProfileUi()
@@ -121,12 +128,16 @@ namespace EvaluaTeach
             }
 
             using Image selectedImage = Image.FromFile(dialog.FileName);
-            var bmp = new Bitmap(selectedImage, new Size(84, 84));
-            labelAvatar.Image = bmp;
-            labelAvatar.Text = string.Empty;
 
-            // Save avatar to shared store so Home can show it
-            ProfileStore.SetAvatar(bmp);
+            // Save avatar to shared store with no modifications
+            ProfileStore.SetAvatar(selectedImage);
+
+            // Use the avatar from ProfileStore for the label
+            if (ProfileStore.Avatar != null)
+            {
+                labelAvatar.Image = ProfileStore.Avatar;
+                labelAvatar.Text = string.Empty;
+            }
         }
 
         private void StyleCard(Panel panel)
