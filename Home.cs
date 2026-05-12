@@ -22,6 +22,11 @@ namespace EvaluaTeach
         private readonly Panel notificationsContainer = new();
         private readonly Label notificationsSubtitle = new();
         private readonly FlowLayoutPanel teachersPanel = new();
+        private readonly ComboBox courseFilter = new();
+        private readonly ComboBox yearFilter = new();
+        private readonly ComboBox sectionFilter = new();
+        private readonly Button clearFiltersBtn = new();
+        private readonly Panel filterPanel = new();
         private bool dashboardLayoutInitialized;
         private bool showingNotifications;
         private bool applyingViewState;
@@ -149,6 +154,7 @@ namespace EvaluaTeach
             StyleIconButton(button8);
             StyleProfileAvatarButton();
             ConfigureDashboardPanels();
+            ConfigureFilterPanel();
             ConfigureTeachersPanel();
             StyleTeacherCard();
             ConfigureNotificationsPanel();
@@ -173,6 +179,7 @@ namespace EvaluaTeach
             UpdateResponsiveLayout();
             UpdateMetrics();
             LoadTeachers();
+            PopulateFilterDropdowns();
         }
 
         private void OpenStudentForms()
@@ -266,6 +273,7 @@ namespace EvaluaTeach
                 panel1.Controls.Add(summaryPanel);
                 panel1.Controls.Add(sectionSubtitle);
                 panel1.Controls.Add(listContainer);
+                listContainer.Controls.Add(filterPanel);
                 listContainer.Controls.Add(label4);
                 listContainer.Controls.Add(label5);
                 listContainer.Controls.Add(label6);
@@ -282,6 +290,8 @@ namespace EvaluaTeach
             teachersPanel.BackColor = Color.White;
             teachersPanel.Padding = new Padding(0, 12, 0, 12);
             teachersPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            // Position below filter panel (filter panel is 50px tall)
+            teachersPanel.Location = new Point(20, 70);
         }
 
         private void OnTeachersUpdated()
@@ -298,27 +308,25 @@ namespace EvaluaTeach
         {
             teachersPanel.Controls.Clear();
             
-            // Get student's section/course/year from profile
-            var studentSection = ProfileStore.Section ?? "";
-            var studentCourse = ProfileStore.Course ?? "";
-            var studentYearLevel = ProfileStore.YearLevel ?? "";
+            // Get filter values from dropdowns
+            var courseFilterValue = courseFilter.SelectedItem?.ToString();
+            var yearFilterValue = yearFilter.SelectedItem?.ToString();
+            var sectionFilterValue = sectionFilter.SelectedItem?.ToString();
             
-            // Only show teachers that match student's section/course/year
-            var teachers = TeacherStore.GetTeachersForStudent(studentSection, studentCourse, studentYearLevel);
+            // Get filtered teachers based on selected criteria
+            var teachers = TeacherStore.GetFilteredTeachersForStudent(courseFilterValue, yearFilterValue, sectionFilterValue);
 
             // Update metric
             metricLabel1.Text = $"{teachers.Count} Teachers";
 
-            // Dynamic width: ~1725 at full width
-            int cardWidth = (listContainer.Width * 2) - 150;
+            // Card width fills the teachers panel with padding
+            int cardWidth = teachersPanel.Width - 24;
 
             if (teachers.Count == 0)
             {
                 var emptyLabel = new Label
                 {
-                    Text = string.IsNullOrEmpty(studentSection) && string.IsNullOrEmpty(studentCourse) 
-                        ? "Please complete your profile (Section, Course, Year Level) to see available teachers."
-                        : "No teachers available for your section/course/year.",
+                    Text = "No teachers available for the selected filters. Try adjusting your filters or clear them to see all teachers.",
                     Font = new Font("Inter", 11F),
                     ForeColor = Color.FromArgb(148, 163, 184),
                     AutoSize = true,
@@ -341,42 +349,109 @@ namespace EvaluaTeach
             var card = new Panel
             {
                 BackColor = Color.White,
-                Size = new Size(cardWidth, 94),
+                Size = new Size(cardWidth, 140),
                 Margin = new Padding(0, 0, 0, 12),
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.None
             };
 
-            // Name label - same as label3 (Mang Juan)
+            // Left accent bar with department color
+            var accentBar = new Panel
+            {
+                BackColor = GetDepartmentColor(teacher.Department),
+                Size = new Size(4, card.Height),
+                Location = new Point(0, 0),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left
+            };
+
+            // Teacher initials avatar (larger like admin)
+            var initialsPanel = new Panel
+            {
+                BackColor = GetDepartmentColor(teacher.Department),
+                Size = new Size(50, 50),
+                Location = new Point(16, 20),
+                Region = new Region(CreateRoundedRectangle(0, 0, 50, 50, 25))
+            };
+
+            var initialsLabel = new Label
+            {
+                Text = GetInitials(teacher.FullName),
+                Font = new Font("Inter SemiBold", 16F, FontStyle.Bold),
+                ForeColor = Color.White,
+                AutoSize = false,
+                Size = new Size(50, 50),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Location = new Point(0, 0)
+            };
+            initialsPanel.Controls.Add(initialsLabel);
+
+            // Name label
             var nameLabel = new Label
             {
                 Text = teacher.FullName,
-                Font = new Font("Inter", 12F, FontStyle.Bold),
+                Font = new Font("Inter SemiBold", 14F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(15, 23, 42),
                 AutoSize = true,
-                Location = new Point(22, 34)
+                Location = new Point(78, 16)
             };
 
-            // Subject label - same as label7 position
-            var subjectLabel = new Label
+            // Email label
+            var emailLabel = new Label
             {
-                Text = teacher.SubjectsDisplay,
-                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
+                Text = teacher.Email,
+                Font = new Font("Inter", 9F),
+                ForeColor = Color.FromArgb(100, 116, 139),
                 AutoSize = true,
-                Location = new Point(Math.Max(180, card.Width / 3), 34)
+                Location = new Point(78, 40)
             };
 
-            // Department label - same as label8 position
-            var deptLabel = new Label
+            // Department badge (green like admin)
+            var deptBadge = new Label
             {
                 Text = teacher.Department,
-                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(22, 101, 52),
+                BackColor = Color.FromArgb(220, 252, 231),
                 AutoSize = true,
-                Location = new Point(Math.Max(360, card.Width / 2 + 20), 34)
+                Padding = new Padding(8, 4, 8, 4),
+                Location = new Point(78, 62)
             };
 
-            // View Forms button - same as button4
+            // Build subjects text from all assignments
+            var allSubjects = teacher.Assignments.SelectMany(a => a.Subjects).Distinct().ToList();
+            if (allSubjects.Count == 0 && teacher.Subjects.Count > 0)
+                allSubjects = teacher.Subjects;
+
+            string subjectsText = allSubjects.Count > 0
+                ? $"📚 {string.Join(", ", allSubjects.Take(3))}{(allSubjects.Count > 3 ? $" +{allSubjects.Count - 3} more" : "")}"
+                : "No subjects assigned";
+
+            // Subjects label
+            var subjectsLabel = new Label
+            {
+                Text = subjectsText,
+                Font = new Font("Inter", 9F),
+                ForeColor = allSubjects.Count > 0 ? Color.FromArgb(71, 85, 105) : Color.FromArgb(239, 68, 68),
+                AutoSize = true,
+                Location = new Point(78, 90),
+                MaximumSize = new Size(cardWidth - 240, 0)
+            };
+
+            // Assignment info (Course/Year/Section)
+            var assignmentInfo = teacher.Assignments.FirstOrDefault();
+            string classText = assignmentInfo != null
+                ? $"{assignmentInfo.Course} · Year {assignmentInfo.YearLevel} · {assignmentInfo.Section}"
+                : "No class assignments";
+
+            var classLabel = new Label
+            {
+                Text = classText,
+                Font = new Font("Inter", 9F),
+                ForeColor = Color.FromArgb(148, 163, 184),
+                AutoSize = true,
+                Location = new Point(78, 110)
+            };
+
+            // View Forms button
             var viewFormsBtn = new Button
             {
                 Text = "View Forms",
@@ -385,17 +460,53 @@ namespace EvaluaTeach
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9.5F, FontStyle.Bold),
-                Size = new Size(118, 42),
-                Location = new Point(card.Width - 140, 26)
+                Size = new Size(118, 40),
+                Location = new Point(card.Width - 140, 50)
             };
             viewFormsBtn.Click += (_, _) => OpenTeacherForms(teacher);
 
+            // Card resize handler
+            card.Resize += (_, _) =>
+            {
+                accentBar.Height = card.Height;
+                viewFormsBtn.Location = new Point(card.Width - 140, 50);
+                subjectsLabel.MaximumSize = new Size(card.Width - 240, 0);
+            };
+
+            card.Controls.Add(accentBar);
+            card.Controls.Add(initialsPanel);
             card.Controls.Add(nameLabel);
-            card.Controls.Add(subjectLabel);
-            card.Controls.Add(deptLabel);
+            card.Controls.Add(emailLabel);
+            card.Controls.Add(deptBadge);
+            card.Controls.Add(subjectsLabel);
+            card.Controls.Add(classLabel);
             card.Controls.Add(viewFormsBtn);
 
             return card;
+        }
+
+        private static GraphicsPath CreateRoundedRectangle(int x, int y, int width, int height, int radius)
+        {
+            var path = new GraphicsPath();
+            path.AddArc(x, y, radius * 2, radius * 2, 180, 90);
+            path.AddArc(x + width - radius * 2, y, radius * 2, radius * 2, 270, 90);
+            path.AddArc(x + width - radius * 2, y + height - radius * 2, radius * 2, radius * 2, 0, 90);
+            path.AddArc(x, y + height - radius * 2, radius * 2, radius * 2, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        private static Color GetDepartmentColor(string department)
+        {
+            return department?.ToLower() switch
+            {
+                "education" => Color.FromArgb(38, 166, 91),
+                "science" => Color.FromArgb(59, 130, 246),
+                "engineering" => Color.FromArgb(249, 115, 22),
+                "nursing" => Color.FromArgb(236, 72, 153),
+                "business" => Color.FromArgb(139, 92, 246),
+                _ => Color.FromArgb(100, 116, 139)
+            };
         }
 
         private void OpenTeacherForms(Teacher teacher)
@@ -932,12 +1043,12 @@ namespace EvaluaTeach
             notificationsContainer.Location = new Point(contentLeft, notificationsTop);
             notificationsContainer.Size = new Size(contentWidth, Math.Max(260, panel1.ClientSize.Height - notificationsContainer.Top - 28));
 
-            label4.Location = new Point(20, 20);
-            label5.Location = new Point(Math.Max(180, listContainer.Width / 3), 20);
-            label6.Location = new Point(Math.Max(360, listContainer.Width / 2 + 40), 20);
+            label4.Location = new Point(20, filterPanel.Height + 20);
+            label5.Location = new Point(Math.Max(180, listContainer.Width / 3), filterPanel.Height + 20);
+            label6.Location = new Point(Math.Max(360, listContainer.Width / 2 + 40), filterPanel.Height + 20);
 
-            // Teachers panel fills the list container below the headers
-            teachersPanel.Location = new Point(20, label4.Bottom + 14);
+            // Teachers panel fills the list container below the filter panel (filterPanel is 50px tall)
+            teachersPanel.Location = new Point(20, filterPanel.Height + 10);
             teachersPanel.Size = new Size(listContainer.Width - 40, Math.Max(300, listContainer.Height - teachersPanel.Top - 20));
 
             LayoutNotificationCards(notificationsContainer.Width);
@@ -1008,6 +1119,10 @@ namespace EvaluaTeach
             {
                 listContainer.Controls.Add(flowLayoutPanel3);
             }
+            if (filterPanel.Parent != listContainer)
+            {
+                listContainer.Controls.Add(filterPanel);
+            }
             if (teachersPanel.Parent != listContainer)
             {
                 listContainer.Controls.Add(teachersPanel);
@@ -1022,6 +1137,7 @@ namespace EvaluaTeach
             listContainer.Visible = showDashboard;
             flowLayoutPanel3.Visible = showDashboard;
             teachersPanel.Visible = showDashboard;
+            filterPanel.Visible = showDashboard;
             notificationsContainer.Visible = !showDashboard;
 
             if (showDashboard)
@@ -1029,6 +1145,7 @@ namespace EvaluaTeach
                 summaryPanel.BringToFront();
                 sectionSubtitle.BringToFront();
                 listContainer.BringToFront();
+                filterPanel.BringToFront();
                 teachersPanel.BringToFront();
             }
             else
@@ -1075,6 +1192,135 @@ namespace EvaluaTeach
         private void label2_Click(object sender, EventArgs e)
         {
 
+        }
+
+        private void ConfigureFilterPanel()
+        {
+            // Filter panel setup
+            filterPanel.BackColor = Color.White;
+            filterPanel.Height = 50;
+            filterPanel.Dock = DockStyle.Top;
+            filterPanel.Padding = new Padding(20, 8, 20, 8);
+
+            // Course filter label and dropdown
+            var courseLabel = new Label
+            {
+                Text = "Course:",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                AutoSize = true,
+                Location = new Point(20, 15)
+            };
+
+            courseFilter.DropDownStyle = ComboBoxStyle.DropDownList;
+            courseFilter.Font = new Font("Inter", 10F);
+            courseFilter.Size = new Size(140, 28);
+            courseFilter.Location = new Point(80, 12);
+            courseFilter.FlatStyle = FlatStyle.Flat;
+            courseFilter.BackColor = Color.FromArgb(248, 250, 252);
+            courseFilter.SelectedIndexChanged += (_, _) => LoadTeachers();
+
+            // Year filter label and dropdown
+            var yearLabel = new Label
+            {
+                Text = "Year:",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                AutoSize = true,
+                Location = new Point(240, 15)
+            };
+
+            yearFilter.DropDownStyle = ComboBoxStyle.DropDownList;
+            yearFilter.Font = new Font("Inter", 10F);
+            yearFilter.Size = new Size(100, 28);
+            yearFilter.Location = new Point(290, 12);
+            yearFilter.FlatStyle = FlatStyle.Flat;
+            yearFilter.BackColor = Color.FromArgb(248, 250, 252);
+            yearFilter.SelectedIndexChanged += (_, _) => LoadTeachers();
+
+            // Section filter label and dropdown
+            var sectionLabel = new Label
+            {
+                Text = "Section:",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                AutoSize = true,
+                Location = new Point(410, 15)
+            };
+
+            sectionFilter.DropDownStyle = ComboBoxStyle.DropDownList;
+            sectionFilter.Font = new Font("Inter", 10F);
+            sectionFilter.Size = new Size(100, 28);
+            sectionFilter.Location = new Point(470, 12);
+            sectionFilter.FlatStyle = FlatStyle.Flat;
+            sectionFilter.BackColor = Color.FromArgb(248, 250, 252);
+            sectionFilter.SelectedIndexChanged += (_, _) => LoadTeachers();
+
+            // Clear filters button
+            clearFiltersBtn.Text = "Clear Filters";
+            clearFiltersBtn.Font = new Font("Inter SemiBold", 9F, FontStyle.Bold);
+            clearFiltersBtn.Size = new Size(110, 28);
+            clearFiltersBtn.Location = new Point(600, 12);
+            clearFiltersBtn.BackColor = Color.FromArgb(241, 245, 249);
+            clearFiltersBtn.ForeColor = Color.FromArgb(71, 85, 105);
+            clearFiltersBtn.FlatStyle = FlatStyle.Flat;
+            clearFiltersBtn.FlatAppearance.BorderSize = 0;
+            clearFiltersBtn.Click += (_, _) => ClearFilters();
+
+            filterPanel.Controls.Add(courseLabel);
+            filterPanel.Controls.Add(courseFilter);
+            filterPanel.Controls.Add(yearLabel);
+            filterPanel.Controls.Add(yearFilter);
+            filterPanel.Controls.Add(sectionLabel);
+            filterPanel.Controls.Add(sectionFilter);
+            filterPanel.Controls.Add(clearFiltersBtn);
+
+            // Add filter panel to list container at the top
+            listContainer.Controls.Add(filterPanel);
+        }
+
+        private void PopulateFilterDropdowns()
+        {
+            try
+            {
+                // Get unique values from teacher assignments
+                var courses = TeacherStore.GetUniqueCourses();
+                var years = TeacherStore.GetUniqueYearLevels();
+                var sections = TeacherStore.GetUniqueSections();
+
+                // Populate course filter
+                courseFilter.Items.Clear();
+                courseFilter.Items.Add("All");
+                foreach (var course in courses)
+                    courseFilter.Items.Add(course);
+                courseFilter.SelectedIndex = 0;
+
+                // Populate year filter
+                yearFilter.Items.Clear();
+                yearFilter.Items.Add("All");
+                foreach (var year in years)
+                    yearFilter.Items.Add(year);
+                yearFilter.SelectedIndex = 0;
+
+                // Populate section filter
+                sectionFilter.Items.Clear();
+                sectionFilter.Items.Add("All");
+                foreach (var section in sections)
+                    sectionFilter.Items.Add(section);
+                sectionFilter.SelectedIndex = 0;
+            }
+            catch
+            {
+                // Silently handle errors - dropdowns will remain empty
+            }
+        }
+
+        private void ClearFilters()
+        {
+            courseFilter.SelectedIndex = 0;
+            yearFilter.SelectedIndex = 0;
+            sectionFilter.SelectedIndex = 0;
+            LoadTeachers();
         }
     }
 }

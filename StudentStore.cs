@@ -25,7 +25,89 @@ namespace EvaluaTeach
 
     public static class StudentStore
     {
-        public static List<Student> GetAllStudents()
+        // Cache fields
+        private static List<Student>? _cachedStudents;
+        private static DateTime _cacheTimestamp;
+        private static readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(5);
+        private static readonly object _cacheLock = new();
+
+        /// <summary>
+        /// Gets all students with optional caching. Returns cached data if available and not expired.
+        /// </summary>
+        public static List<Student> GetAllStudents(bool useCache = true)
+        {
+            if (useCache)
+            {
+                lock (_cacheLock)
+                {
+                    if (_cachedStudents != null && DateTime.Now - _cacheTimestamp < _cacheDuration)
+                    {
+                        return _cachedStudents;
+                    }
+                }
+            }
+
+            var students = LoadStudentsFromDatabase();
+
+            if (useCache)
+            {
+                lock (_cacheLock)
+                {
+                    _cachedStudents = students;
+                    _cacheTimestamp = DateTime.Now;
+                }
+            }
+
+            return students;
+        }
+
+        /// <summary>
+        /// Forces a fresh load from database and updates the cache.
+        /// </summary>
+        public static List<Student> RefreshStudents()
+        {
+            var students = LoadStudentsFromDatabase();
+            lock (_cacheLock)
+            {
+                _cachedStudents = students;
+                _cacheTimestamp = DateTime.Now;
+            }
+            return students;
+        }
+
+        /// <summary>
+        /// Invalidates the student cache. Call this after any add/update/delete/sync operation.
+        /// </summary>
+        public static void InvalidateCache()
+        {
+            lock (_cacheLock)
+            {
+                _cachedStudents = null;
+                _cacheTimestamp = DateTime.MinValue;
+            }
+        }
+
+        /// <summary>
+        /// Searches students by name, ID, course, or section. Uses cache if available.
+        /// </summary>
+        public static List<Student> SearchStudents(string searchTerm)
+        {
+            var students = GetAllStudents(useCache: true);
+            if (string.IsNullOrWhiteSpace(searchTerm)) return students;
+
+            var term = searchTerm.Trim().ToLowerInvariant();
+            return students.Where(s =>
+                s.FirstName?.ToLowerInvariant().Contains(term) == true ||
+                s.LastName?.ToLowerInvariant().Contains(term) == true ||
+                s.IDNumber?.ToLowerInvariant().Contains(term) == true ||
+                s.Course?.ToLowerInvariant().Contains(term) == true ||
+                s.Section?.ToLowerInvariant().Contains(term) == true ||
+                s.Email?.ToLowerInvariant().Contains(term) == true ||
+                $"{s.FirstName} {s.LastName}"?.ToLowerInvariant().Contains(term) == true
+            ).ToList();
+        }
+
+        private static List<Student> LoadStudentsFromDatabase()
         {
             var students = new List<Student>();
 
@@ -84,6 +166,7 @@ namespace EvaluaTeach
                 cmd.Parameters.AddWithValue("@password", hashedPassword);
 
                 cmd.ExecuteNonQuery();
+                InvalidateCache();
             }
             catch (Exception ex)
             {
@@ -111,6 +194,7 @@ namespace EvaluaTeach
                 cmd.Parameters.AddWithValue("@studentId", student.StudentID);
 
                 cmd.ExecuteNonQuery();
+                InvalidateCache();
             }
             catch (Exception ex)
             {
@@ -154,6 +238,7 @@ namespace EvaluaTeach
                 var cmd = new MySqlCommand("DELETE FROM student WHERE StudentID = @studentId", conn);
                 cmd.Parameters.AddWithValue("@studentId", studentId);
                 cmd.ExecuteNonQuery();
+                InvalidateCache();
             }
             catch (Exception ex)
             {
@@ -372,6 +457,7 @@ namespace EvaluaTeach
                 }
 
                 tx.Commit();
+                InvalidateCache();
             }
             catch
             {

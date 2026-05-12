@@ -301,18 +301,41 @@ namespace EvaluaTeach
             using var conn = Database.GetConnection();
             conn.Open();
 
-            var cmd = new MySqlCommand(@"
+            // Build dynamic query - if filter is empty/"All", match all values
+            var sql = @"
                 SELECT AssignmentID, TeacherID, Section, Course, YearLevel, Subjects
                 FROM teacher_assignment
-                WHERE TeacherID = @teacherId
-                  AND (Section = @section OR Section IS NULL OR Section = '')
-                  AND (Course = @course OR Course IS NULL OR Course = '')
-                  AND (YearLevel = @yearLevel OR YearLevel IS NULL OR YearLevel = '')
-                ORDER BY AssignmentID", conn);
+                WHERE TeacherID = @teacherId";
+
+            // Only filter on section if a specific value is provided
+            if (!string.IsNullOrEmpty(section) && section != "All")
+            {
+                sql += " AND (Section = @section OR Section IS NULL OR Section = '')";
+            }
+
+            // Only filter on course if a specific value is provided
+            if (!string.IsNullOrEmpty(course) && course != "All")
+            {
+                sql += " AND (Course = @course OR Course IS NULL OR Course = '')";
+            }
+
+            // Only filter on year level if a specific value is provided
+            if (!string.IsNullOrEmpty(yearLevel) && yearLevel != "All")
+            {
+                sql += " AND (YearLevel = @yearLevel OR YearLevel IS NULL OR YearLevel = '')";
+            }
+
+            sql += " ORDER BY AssignmentID";
+
+            var cmd = new MySqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("@teacherId", teacherId);
-            cmd.Parameters.AddWithValue("@section", section);
-            cmd.Parameters.AddWithValue("@course", course);
-            cmd.Parameters.AddWithValue("@yearLevel", yearLevel);
+
+            if (!string.IsNullOrEmpty(section) && section != "All")
+                cmd.Parameters.AddWithValue("@section", section);
+            if (!string.IsNullOrEmpty(course) && course != "All")
+                cmd.Parameters.AddWithValue("@course", course);
+            if (!string.IsNullOrEmpty(yearLevel) && yearLevel != "All")
+                cmd.Parameters.AddWithValue("@yearLevel", yearLevel);
 
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -577,6 +600,132 @@ namespace EvaluaTeach
                 return true;
             }
             return false;
+        }
+
+        // Filter methods for student dashboard
+        public static List<string> GetUniqueCourses()
+        {
+            var courses = new List<string>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                SELECT DISTINCT Course FROM teacher_assignment 
+                WHERE Course IS NOT NULL AND Course != '' 
+                ORDER BY Course", conn);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                courses.Add(reader.GetString("Course"));
+            }
+            return courses;
+        }
+
+        public static List<string> GetUniqueYearLevels()
+        {
+            var years = new List<string>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                SELECT DISTINCT YearLevel FROM teacher_assignment 
+                WHERE YearLevel IS NOT NULL AND YearLevel != '' 
+                ORDER BY YearLevel", conn);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                years.Add(reader.GetString("YearLevel"));
+            }
+            return years;
+        }
+
+        public static List<string> GetUniqueSections()
+        {
+            var sections = new List<string>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                SELECT DISTINCT Section FROM teacher_assignment 
+                WHERE Section IS NOT NULL AND Section != '' 
+                ORDER BY Section", conn);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                sections.Add(reader.GetString("Section"));
+            }
+            return sections;
+        }
+
+        public static List<Teacher> GetFilteredTeachersForStudent(string? courseFilter, string? yearFilter, string? sectionFilter)
+        {
+            var teachers = new List<Teacher>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            // Build dynamic query based on filters
+            var sql = @"
+                SELECT DISTINCT t.TeacherID, t.FirstName, t.LastName, t.Email, t.Department, t.Section, t.Course, t.YearLevel, t.Subjects, t.CreatedAt
+                FROM Teacher t
+                INNER JOIN teacher_assignment ta ON ta.TeacherID = t.TeacherID
+                WHERE 1=1";
+
+            var parameters = new List<MySqlParameter>();
+
+            if (!string.IsNullOrEmpty(courseFilter) && courseFilter != "All")
+            {
+                sql += " AND ta.Course = @course";
+                parameters.Add(new MySqlParameter("@course", courseFilter));
+            }
+            if (!string.IsNullOrEmpty(yearFilter) && yearFilter != "All")
+            {
+                sql += " AND ta.YearLevel = @yearLevel";
+                parameters.Add(new MySqlParameter("@yearLevel", yearFilter));
+            }
+            if (!string.IsNullOrEmpty(sectionFilter) && sectionFilter != "All")
+            {
+                sql += " AND ta.Section = @section";
+                parameters.Add(new MySqlParameter("@section", sectionFilter));
+            }
+
+            sql += " ORDER BY t.LastName, t.FirstName";
+
+            var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddRange(parameters.ToArray());
+
+            using (var reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    var subjectsStr = reader.IsDBNull(reader.GetOrdinal("Subjects")) ? "" : reader.GetString("Subjects");
+                    var teacherId = reader.GetInt32("TeacherID");
+                    teachers.Add(new Teacher
+                    {
+                        TeacherID = teacherId,
+                        FirstName = reader.GetString("FirstName"),
+                        LastName = reader.GetString("LastName"),
+                        Email = reader.IsDBNull(reader.GetOrdinal("Email")) ? "" : reader.GetString("Email"),
+                        Department = reader.IsDBNull(reader.GetOrdinal("Department")) ? "" : reader.GetString("Department"),
+                        Section = reader.IsDBNull(reader.GetOrdinal("Section")) ? "" : reader.GetString("Section"),
+                        Course = reader.IsDBNull(reader.GetOrdinal("Course")) ? "" : reader.GetString("Course"),
+                        YearLevel = reader.IsDBNull(reader.GetOrdinal("YearLevel")) ? "" : reader.GetInt32("YearLevel").ToString(),
+                        Subjects = string.IsNullOrEmpty(subjectsStr) ? new List<string>() : subjectsStr.Split(',').Select(s => s.Trim()).ToList(),
+                        CreatedAt = reader.GetDateTime("CreatedAt"),
+                        Assignments = new List<TeacherAssignment>()
+                    });
+                }
+            }
+
+            // Load matching assignments for each teacher based on current filters
+            foreach (var teacher in teachers)
+            {
+                teacher.Assignments = GetMatchingAssignmentsForStudent(teacher.TeacherID, sectionFilter ?? "", courseFilter ?? "", yearFilter ?? "");
+            }
+
+            return teachers;
         }
 
         private static string HashPassword(string password)

@@ -54,6 +54,19 @@ namespace EvaluaTeach
         private readonly ComboBox semesterFilter = new();
         private bool populatingSemesterFilter;
 
+        // Student management pagination fields
+        private List<Student>? _allStudents;
+        private List<Student>? _filteredStudents;
+        private readonly TextBox _studentSearchBox = new();
+        private readonly Label _studentCountLabel = new();
+        private readonly Panel _studentListContainer = new();
+        private readonly Label _pageInfoLabel = new();
+        private readonly Button _prevPageBtn = new();
+        private readonly Button _nextPageBtn = new();
+        private const int _studentsPerPage = 50;
+        private int _currentPage = 1;
+        private System.Windows.Forms.Timer? _searchDebounceTimer;
+
         public AdminHome()
         {
             InitializeComponent();
@@ -2972,13 +2985,14 @@ namespace EvaluaTeach
             teachersListPanel.Controls.Clear();
             var teachers = TeacherStore.GetAllTeachers();
 
-            // Header section
+            // Header section - no Dock in FlowLayoutPanel
             var headerPanel = new Panel
             {
                 BackColor = Color.White,
-                Size = new Size(teachersListPanel.Width - 40, 140),
+                Size = new Size(teachersListPanel.Width - 40, 180),
                 Margin = new Padding(0, 0, 0, 16),
-                Padding = new Padding(24)
+                Padding = new Padding(24),
+                Location = new Point(0, 0)
             };
 
             var titleLabel = new Label
@@ -4600,162 +4614,364 @@ namespace EvaluaTeach
         private void LoadStudentsView()
         {
             teachersListPanel.Controls.Clear();
-            var students = StudentStore.GetAllStudents();
+            teachersListPanel.SuspendLayout();
 
-            // Header section
-            var headerPanel = new Panel
+            try
             {
-                BackColor = Color.White,
-                Size = new Size(teachersListPanel.Width - 40, 140),
-                Margin = new Padding(0, 0, 0, 16),
-                Padding = new Padding(24)
-            };
+                // Load students from cache
+                _allStudents = StudentStore.GetAllStudents(useCache: true);
+                _filteredStudents = _allStudents;
+                _currentPage = 1;
 
-            var titleLabel = new Label
-            {
-                Text = "All Students",
-                Font = new Font("Inter", 16F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(15, 23, 42),
-                AutoSize = true,
-                Location = new Point(24, 20)
-            };
-
-            var statsText = $"{students.Count} Total Students";
-            if (students.Count > 0)
-            {
-                var courses = students.Select(s => s.Course).Distinct().Count();
-                var yearLevels = students.Select(s => s.YearLevel).Distinct().Count();
-                statsText += $"  ·  {courses} Courses  ·  {yearLevels} Year Levels";
-            }
-
-            var statsLabel = new Label
-            {
-                Text = statsText,
-                Font = new Font("Inter", 10F),
-                ForeColor = Color.FromArgb(100, 116, 139),
-                AutoSize = true,
-                Location = new Point(24, 50)
-            };
-
-            // Add Student button in header
-            var addBtn = new Button
-            {
-                Text = "+ Add New Student",
-                BackColor = Color.FromArgb(38, 166, 91),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                FlatAppearance = { BorderSize = 0 },
-                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
-                Size = new Size(160, 40),
-                Location = new Point(headerPanel.Width - 184, 50),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Cursor = Cursors.Hand
-            };
-            addBtn.Click += (_, _) => AddStudent();
-
-            // Sync Student Registry button
-            var syncBtn = new Button
-            {
-                Text = "⟳ Sync Registry",
-                BackColor = Color.FromArgb(59, 130, 246),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                FlatAppearance = { BorderSize = 0 },
-                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
-                Size = new Size(148, 40),
-                Location = new Point(headerPanel.Width - 348, 50),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Cursor = Cursors.Hand
-            };
-            syncBtn.Click += async (_, _) =>
-            {
-                syncBtn.Enabled = false;
-                syncBtn.Text = "Syncing…";
-                try
-                {
-                    var (ins, upd) = await StudentStore.SyncFromRegistry();
-                    MessageBox.Show(
-                        $"Sync complete.\n\n  {ins} student{(ins == 1 ? "" : "s")} inserted\n  {upd} student{(upd == 1 ? "" : "s")} updated",
-                        "Registry Sync",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-                    LoadStudentsView();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Sync failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    syncBtn.Enabled = true;
-                    syncBtn.Text = "⟳ Sync Registry";
-                }
-            };
-
-            headerPanel.Controls.Add(titleLabel);
-            headerPanel.Controls.Add(statsLabel);
-            headerPanel.Controls.Add(syncBtn);
-            headerPanel.Controls.Add(addBtn);
-            headerPanel.Resize += (_, _) =>
-            {
-                addBtn.Location  = new Point(headerPanel.Width - 184, 50);
-                syncBtn.Location = new Point(headerPanel.Width - 348, 50);
-            };
-
-            teachersListPanel.Controls.Add(headerPanel);
-
-            if (students.Count == 0)
-            {
-                var emptyPanel = new Panel
+                // Header section - FlowLayoutPanel doesn't support Dock properly
+                var headerPanel = new Panel
                 {
                     BackColor = Color.White,
-                    Size = new Size(teachersListPanel.Width - 40, 200),
-                    Margin = new Padding(0, 16, 0, 0)
+                    Size = new Size(teachersListPanel.Width - 40, 180),
+                    Margin = new Padding(0, 0, 0, 16),
+                    Padding = new Padding(24)
                 };
 
-                var emptyIcon = new Label
+                var titleLabel = new Label
                 {
-                    Text = "🎓",
-                    Font = new Font("Segoe UI", 48F),
+                    Text = "All Students",
+                    Font = new Font("Inter", 16F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(15, 23, 42),
                     AutoSize = true,
-                    Location = new Point((emptyPanel.Width - 60) / 2, 40)
+                    Location = new Point(24, 20)
                 };
 
-                var emptyLabel = new Label
+                _studentCountLabel.Text = $"{_allStudents.Count} Total Students";
+                _studentCountLabel.Font = new Font("Inter", 10F);
+                _studentCountLabel.ForeColor = Color.FromArgb(100, 116, 139);
+                _studentCountLabel.AutoSize = true;
+                _studentCountLabel.Location = new Point(24, 50);
+
+                // Search box
+                _studentSearchBox.Text = "Search by name, ID, course, or section...";
+                _studentSearchBox.Font = new Font("Inter", 10F);
+                _studentSearchBox.Size = new Size(320, 28);
+                _studentSearchBox.Location = new Point(24, 80);
+                _studentSearchBox.BorderStyle = BorderStyle.FixedSingle;
+                _studentSearchBox.BackColor = Color.FromArgb(248, 250, 252);
+                _studentSearchBox.ForeColor = Color.FromArgb(148, 163, 184);
+                _studentSearchBox.GotFocus += (_, _) =>
                 {
-                    Text = "No students added yet",
-                    Font = new Font("Inter", 14F, FontStyle.Bold),
-                    ForeColor = Color.FromArgb(71, 85, 105),
-                    AutoSize = true,
-                    Location = new Point((emptyPanel.Width - 200) / 2, 110)
+                    if (_studentSearchBox.Text == "Search by name, ID, course, or section...")
+                    {
+                        _studentSearchBox.Text = "";
+                        _studentSearchBox.ForeColor = Color.FromArgb(15, 23, 42);
+                    }
                 };
-
-                var emptySubLabel = new Label
+                _studentSearchBox.LostFocus += (_, _) =>
                 {
-                    Text = "Click '+ Add New Student' to add your first student",
-                    Font = new Font("Inter", 10F),
-                    ForeColor = Color.FromArgb(148, 163, 184),
-                    AutoSize = true,
-                    Location = new Point((emptyPanel.Width - 350) / 2, 140)
+                    if (string.IsNullOrWhiteSpace(_studentSearchBox.Text))
+                    {
+                        _studentSearchBox.Text = "Search by name, ID, course, or section...";
+                        _studentSearchBox.ForeColor = Color.FromArgb(148, 163, 184);
+                    }
+                };
+                _studentSearchBox.TextChanged += (_, _) => OnStudentSearchTextChanged();
+
+                // Add Student button in header
+                var addBtn = new Button
+                {
+                    Text = "+ Add New Student",
+                    BackColor = Color.FromArgb(38, 166, 91),
+                    ForeColor = Color.White,
+                    FlatStyle = FlatStyle.Flat,
+                    FlatAppearance = { BorderSize = 0 },
+                    Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                    Size = new Size(160, 40),
+                    Location = new Point(headerPanel.Width - 184, 20),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    Cursor = Cursors.Hand
+                };
+                addBtn.Click += (_, _) => AddStudent();
+
+                // Sync Student Registry button
+                var syncBtn = new Button
+                {
+                    Text = "⟳ Sync Registry",
+                    BackColor = Color.FromArgb(59, 130, 246),
+                    ForeColor = Color.White,
+                    FlatStyle = FlatStyle.Flat,
+                    FlatAppearance = { BorderSize = 0 },
+                    Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                    Size = new Size(148, 40),
+                    Location = new Point(headerPanel.Width - 348, 20),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    Cursor = Cursors.Hand
+                };
+                syncBtn.Click += async (_, _) =>
+                {
+                    syncBtn.Enabled = false;
+                    syncBtn.Text = "Syncing…";
+                    try
+                    {
+                        var (ins, upd) = await StudentStore.SyncFromRegistry();
+                        MessageBox.Show(
+                            $"Sync complete.\n\n  {ins} student{(ins == 1 ? "" : "s")} inserted\n  {upd} student{(upd == 1 ? "" : "s")} updated",
+                            "Registry Sync",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                        LoadStudentsView();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Sync failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        syncBtn.Enabled = true;
+                        syncBtn.Text = "⟳ Sync Registry";
+                    }
                 };
 
-                emptyPanel.Controls.Add(emptyIcon);
-                emptyPanel.Controls.Add(emptyLabel);
-                emptyPanel.Controls.Add(emptySubLabel);
-                teachersListPanel.Controls.Add(emptyPanel);
-                return;
+                headerPanel.Controls.Add(titleLabel);
+                headerPanel.Controls.Add(_studentCountLabel);
+                headerPanel.Controls.Add(_studentSearchBox);
+                headerPanel.Controls.Add(syncBtn);
+                headerPanel.Controls.Add(addBtn);
+                headerPanel.Resize += (_, _) =>
+                {
+                    addBtn.Location = new Point(headerPanel.Width - 184, 20);
+                    syncBtn.Location = new Point(headerPanel.Width - 348, 20);
+                };
+
+                teachersListPanel.Controls.Add(headerPanel);
+
+                // Handle parent panel resize
+                teachersListPanel.Resize += (_, _) =>
+                {
+                    if (_studentListContainer != null)
+                    {
+                        var newHeight = Math.Max(300, teachersListPanel.Height - 196 - 60 - 40);
+                        _studentListContainer.Size = new Size(teachersListPanel.Width - 40, newHeight);
+                    }
+                };
+
+                if (_allStudents.Count == 0)
+                {
+                    var emptyPanel = new Panel
+                    {
+                        BackColor = Color.White,
+                        Size = new Size(teachersListPanel.Width - 40, 200),
+                        Margin = new Padding(0, 16, 0, 0)
+                    };
+
+                    var emptyIcon = new Label
+                    {
+                        Text = "🎓",
+                        Font = new Font("Segoe UI", 48F),
+                        AutoSize = true,
+                        Location = new Point((emptyPanel.Width - 60) / 2, 40)
+                    };
+
+                    var emptyLabel = new Label
+                    {
+                        Text = "No students added yet",
+                        Font = new Font("Inter", 14F, FontStyle.Bold),
+                        ForeColor = Color.FromArgb(71, 85, 105),
+                        AutoSize = true,
+                        Location = new Point((emptyPanel.Width - 200) / 2, 110)
+                    };
+
+                    var emptySubLabel = new Label
+                    {
+                        Text = "Click '+ Add New Student' to add your first student",
+                        Font = new Font("Inter", 10F),
+                        ForeColor = Color.FromArgb(148, 163, 184),
+                        AutoSize = true,
+                        Location = new Point((emptyPanel.Width - 350) / 2, 140)
+                    };
+
+                    emptyPanel.Controls.Add(emptyIcon);
+                    emptyPanel.Controls.Add(emptyLabel);
+                    emptyPanel.Controls.Add(emptySubLabel);
+                    teachersListPanel.Controls.Add(emptyPanel);
+                    return;
+                }
+
+                var headerHeight = 180 + 16; // header panel height + margin
+                var footerHeight = 60; // pagination controls height
+                var availableHeight = Math.Max(300, teachersListPanel.Height - headerHeight - footerHeight - 40);
+                _studentListContainer.BackColor = Color.White;
+                _studentListContainer.Size = new Size(teachersListPanel.Width - 40, availableHeight);
+                _studentListContainer.AutoScroll = false; // No scroll, use pagination
+                _studentListContainer.Padding = new Padding(0, 12, 0, 12);
+                _studentListContainer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+
+                teachersListPanel.Controls.Add(_studentListContainer);
+
+                // Pagination controls panel
+                var paginationPanel = new Panel
+                {
+                    BackColor = Color.White,
+                    Size = new Size(teachersListPanel.Width - 40, 50),
+                    Margin = new Padding(0, 8, 0, 0)
+                };
+
+                _prevPageBtn.Text = "← Previous";
+                _prevPageBtn.Font = new Font("Inter SemiBold", 10F, FontStyle.Bold);
+                _prevPageBtn.Size = new Size(110, 36);
+                _prevPageBtn.Location = new Point(24, 8);
+                _prevPageBtn.BackColor = Color.FromArgb(38, 166, 91); // Green color
+                _prevPageBtn.ForeColor = Color.White;
+                _prevPageBtn.FlatStyle = FlatStyle.Flat;
+                _prevPageBtn.FlatAppearance.BorderSize = 0;
+                _prevPageBtn.Click += (_, _) => ChangePage(-1);
+
+                _pageInfoLabel.Text = "Page 1 of 1";
+                _pageInfoLabel.Font = new Font("Inter SemiBold", 10F, FontStyle.Bold);
+                _pageInfoLabel.ForeColor = Color.FromArgb(71, 85, 105);
+                _pageInfoLabel.AutoSize = true;
+                _pageInfoLabel.Location = new Point(160, 16);
+
+                _nextPageBtn.Text = "Next →";
+                _nextPageBtn.Font = new Font("Inter SemiBold", 10F, FontStyle.Bold);
+                _nextPageBtn.Size = new Size(110, 36);
+                _nextPageBtn.Location = new Point(380, 8);
+                _nextPageBtn.BackColor = Color.FromArgb(38, 166, 91); // Green color
+                _nextPageBtn.ForeColor = Color.White;
+                _nextPageBtn.FlatStyle = FlatStyle.Flat;
+                _nextPageBtn.FlatAppearance.BorderSize = 0;
+                _nextPageBtn.Click += (_, _) => ChangePage(1);
+
+                paginationPanel.Controls.Add(_prevPageBtn);
+                paginationPanel.Controls.Add(_pageInfoLabel);
+                paginationPanel.Controls.Add(_nextPageBtn);
+                paginationPanel.Resize += (_, _) =>
+                {
+                    _nextPageBtn.Location = new Point(paginationPanel.Width - 124, 8);
+                    _pageInfoLabel.Location = new Point((paginationPanel.Width - _pageInfoLabel.Width) / 2, 16);
+                };
+
+                teachersListPanel.Controls.Add(paginationPanel);
+
+                // Handle parent panel resize
+                teachersListPanel.Resize += (_, _) =>
+                {
+                    if (_studentListContainer != null)
+                    {
+                        var newHeight = Math.Max(300, teachersListPanel.Height - 196 - 60 - 40);
+                        _studentListContainer.Size = new Size(teachersListPanel.Width - 40, newHeight);
+                        paginationPanel.Width = teachersListPanel.Width - 40;
+                        RenderCurrentPage();
+                    }
+                };
+
+                // Initial render
+                _currentPage = 1;
+                RenderCurrentPage();
             }
-
-            foreach (var student in students)
+            finally
             {
-                var card = CreateStudentCard(student);
-                teachersListPanel.Controls.Add(card);
+                teachersListPanel.ResumeLayout(true);
             }
         }
 
-        private Panel CreateStudentCard(Student student)
+        private void OnStudentSearchTextChanged()
         {
+            // Cancel existing timer
+            _searchDebounceTimer?.Stop();
+            _searchDebounceTimer?.Dispose();
+
+            // Create new debounce timer (300ms delay)
+            _searchDebounceTimer = new System.Windows.Forms.Timer { Interval = 300 };
+            _searchDebounceTimer.Tick += (_, _) =>
+            {
+                _searchDebounceTimer.Stop();
+                _searchDebounceTimer.Dispose();
+                _searchDebounceTimer = null;
+
+                // Perform search on UI thread
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(PerformStudentSearch));
+                }
+                else
+                {
+                    PerformStudentSearch();
+                }
+            };
+            _searchDebounceTimer.Start();
+        }
+
+        private void PerformStudentSearch()
+        {
+            var searchText = _studentSearchBox.Text;
+            if (searchText == "Search by name, ID, course, or section...")
+                searchText = "";
+
+            _filteredStudents = string.IsNullOrWhiteSpace(searchText)
+                ? _allStudents
+                : StudentStore.SearchStudents(searchText);
+
+            _currentPage = 1; // Reset to first page on search
+            _studentCountLabel.Text = $"{_filteredStudents?.Count ?? 0} Students Found";
+
+            // Clear and re-render
+            RenderCurrentPage();
+        }
+
+        private void RenderCurrentPage()
+        {
+            if (_filteredStudents == null || _filteredStudents.Count == 0)
+            {
+                _pageInfoLabel.Text = "No students";
+                _prevPageBtn.Enabled = false;
+                _nextPageBtn.Enabled = false;
+                return;
+            }
+
+            // Calculate page info
+            var totalPages = (int)Math.Ceiling((double)_filteredStudents.Count / _studentsPerPage);
+            if (_currentPage < 1) _currentPage = 1;
+            if (_currentPage > totalPages) _currentPage = totalPages;
+
+            var startIndex = (_currentPage - 1) * _studentsPerPage;
+            var endIndex = Math.Min(startIndex + _studentsPerPage, _filteredStudents.Count);
+
+            // Update pagination controls
+            _pageInfoLabel.Text = $"Page {_currentPage} of {totalPages} ({_filteredStudents.Count} total)";
+            _prevPageBtn.Enabled = _currentPage > 1;
+            _nextPageBtn.Enabled = _currentPage < totalPages;
+
+            // Suspend layout during update
+            _studentListContainer.SuspendLayout();
+
+            try
+            {
+                // Clear existing cards
+                _studentListContainer.Controls.Clear();
+
+                // Add cards for current page
+                for (int i = startIndex; i < endIndex; i++)
+                {
+                    var student = _filteredStudents[i];
+                    var card = CreateStudentCard(student, _studentListContainer.Width - 24);
+                    card.Location = new Point(0, (i - startIndex) * 142); // 130 + 12 margin
+                    card.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+                    _studentListContainer.Controls.Add(card);
+                }
+            }
+            finally
+            {
+                _studentListContainer.ResumeLayout(true);
+            }
+        }
+
+        private void ChangePage(int direction)
+        {
+            _currentPage += direction;
+            RenderCurrentPage();
+        }
+
+        private Panel CreateStudentCard(Student student, int cardWidth = 0)
+        {
+            var width = cardWidth > 0 ? cardWidth : teachersListPanel.Width - 40;
             var card = new Panel
             {
                 BackColor = Color.White,
-                Size = new Size(teachersListPanel.Width - 40, 130),
+                Size = new Size(width, 130),
                 Margin = new Padding(0, 0, 0, 12),
                 Padding = new Padding(20)
             };
