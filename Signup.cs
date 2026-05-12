@@ -70,7 +70,7 @@ namespace EvaluaTeach
             StyleTextBox(textBoxFirstName, "Enter first name");
             StyleTextBox(textBoxLastName, "Enter last name");
             StyleTextBox(textBoxEmail, "Enter your school email");
-            StyleTextBox(textBoxSection, "e.g. BSIT 2A");
+            StyleTextBox(textBoxSection, "e.g. A, B, C (just the section letter)");
             StyleTextBox(textBoxPassword, "Create a password", true);
             StyleTextBox(textBoxConfirmPassword, "Confirm your password", true);
 
@@ -230,7 +230,11 @@ namespace EvaluaTeach
             string email = textBoxEmail.Text.Trim();
             string program = comboBoxProgram.SelectedItem?.ToString() ?? "BSIT";
             string yearLevel = comboBoxYearLevel.SelectedItem?.ToString() ?? "1st Year";
-            string section = textBoxSection.Text.Trim();
+            
+            // Parse section - extract just the letter (A, B, C) from input like "BSIT 2A" or "Section A"
+            string sectionInput = textBoxSection.Text.Trim();
+            string section = ParseSectionLetter(sectionInput);
+            
             string password = textBoxPassword.Text;
             string confirmPassword = textBoxConfirmPassword.Text;
             string fullName = $"{firstName} {lastName}".Trim();
@@ -321,12 +325,43 @@ namespace EvaluaTeach
 
             string meta = $"Student {program}";
             SessionStore.Login(studentId, databaseStudentId, fullName, email, UserRole.Student);
-            ProfileStore.UpdateProfile(fullName, meta, email, studentId, databaseStudentId);
+            ProfileStore.UpdateProfile(fullName, meta, email, studentId, databaseStudentId, section, program, yearLevelNum.ToString());
 
             MessageBox.Show("Account created successfully! Welcome to EvaluaTeach.",
                 "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             Program.NavigateTo(new Home());
+        }
+
+        private static string ParseSectionLetter(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return "";
+            
+            // Remove common prefixes and extract just the letter
+            input = input.Trim().ToUpper();
+            
+            // Remove "SECTION", "SEC" prefixes if present
+            if (input.StartsWith("SECTION"))
+                input = input.Substring(7).Trim();
+            else if (input.StartsWith("SEC"))
+                input = input.Substring(3).Trim();
+            
+            // Remove course codes like BSIT, BSCS followed by numbers
+            // Pattern: Course code (letters) + optional space + year (digits) + section (letter)
+            var match = System.Text.RegularExpressions.Regex.Match(input, @"[A-Z]+\s*\d*\s*([A-Z])");
+            if (match.Success && match.Groups.Count > 1)
+            {
+                // Return the last letter (the section)
+                return match.Groups[1].Value;
+            }
+            
+            // If input is just a single letter, return it
+            if (input.Length == 1 && char.IsLetter(input[0]))
+                return input;
+            
+            // Otherwise return empty
+            return "";
         }
 
         private static string HashPassword(string password)

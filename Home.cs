@@ -297,7 +297,14 @@ namespace EvaluaTeach
         private void LoadTeachers()
         {
             teachersPanel.Controls.Clear();
-            var teachers = TeacherStore.GetAllTeachers();
+            
+            // Get student's section/course/year from profile
+            var studentSection = ProfileStore.Section ?? "";
+            var studentCourse = ProfileStore.Course ?? "";
+            var studentYearLevel = ProfileStore.YearLevel ?? "";
+            
+            // Only show teachers that match student's section/course/year
+            var teachers = TeacherStore.GetTeachersForStudent(studentSection, studentCourse, studentYearLevel);
 
             // Update metric
             metricLabel1.Text = $"{teachers.Count} Teachers";
@@ -309,10 +316,13 @@ namespace EvaluaTeach
             {
                 var emptyLabel = new Label
                 {
-                    Text = "No teachers available yet.",
+                    Text = string.IsNullOrEmpty(studentSection) && string.IsNullOrEmpty(studentCourse) 
+                        ? "Please complete your profile (Section, Course, Year Level) to see available teachers."
+                        : "No teachers available for your section/course/year.",
                     Font = new Font("Inter", 11F),
                     ForeColor = Color.FromArgb(148, 163, 184),
                     AutoSize = true,
+                    MaximumSize = new Size(cardWidth - 40, 0),
                     Margin = new Padding(8)
                 };
                 teachersPanel.Controls.Add(emptyLabel);

@@ -18,6 +18,11 @@ namespace EvaluaTeach
         public static string Email { get; private set; } = "mangjuan@student.edu";
         public static string StudentId { get; private set; } = "2024-000123";
         public static int? DatabaseStudentId { get; private set; }
+        
+        // Student class matching properties
+        public static string Section { get; private set; } = "";
+        public static string Course { get; private set; } = "";
+        public static string YearLevel { get; private set; } = "";
 
         // Thumbnail for small display (84x84)
         public static Image? Avatar
@@ -42,13 +47,16 @@ namespace EvaluaTeach
 
         public static event Action? ProfileUpdated;
 
-        public static void UpdateProfile(string? name, string? meta, string? email = null, string? studentId = null, int? databaseId = null)
+        public static void UpdateProfile(string? name, string? meta, string? email = null, string? studentId = null, int? databaseId = null, string? section = null, string? course = null, string? yearLevel = null)
         {
             if (!string.IsNullOrWhiteSpace(name)) Name = name!;
             if (!string.IsNullOrWhiteSpace(meta)) Meta = meta!;
             if (!string.IsNullOrWhiteSpace(email)) Email = email!;
             if (!string.IsNullOrWhiteSpace(studentId)) StudentId = studentId!;
             if (databaseId.HasValue) DatabaseStudentId = databaseId.Value;
+            if (!string.IsNullOrWhiteSpace(section)) Section = section!;
+            if (!string.IsNullOrWhiteSpace(course)) Course = course!;
+            if (!string.IsNullOrWhiteSpace(yearLevel)) YearLevel = yearLevel!;
 
             ProfileUpdated?.Invoke();
         }

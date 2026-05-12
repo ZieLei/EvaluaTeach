@@ -221,7 +221,7 @@ namespace EvaluaTeach
                 EnsureDefaultUsers();
 
                 // Authenticate against database - auto-detect admin or student
-                var (isValid, detectedRole, numericId, name, email, course) = AuthenticateUser(userId, password);
+                var (isValid, detectedRole, numericId, name, email, course, section, yearLevel) = AuthenticateUser(userId, password);
 
                 if (!isValid)
                 {
@@ -234,7 +234,7 @@ namespace EvaluaTeach
                             : $"Student {course}";
 
                 SessionStore.Login(userId, numericId, name, email, detectedRole);
-                ProfileStore.UpdateProfile(name, meta, email, userId, numericId);
+                ProfileStore.UpdateProfile(name, meta, email, userId, numericId, section, course, yearLevel);
 
                 // Load avatar from database for students
                 if (detectedRole == UserRole.Student && numericId.HasValue)
@@ -288,7 +288,7 @@ namespace EvaluaTeach
             }
         }
 
-        private (bool isValid, UserRole role, int? numericId, string name, string email, string course) AuthenticateUser(string userId, string password)
+        private (bool isValid, UserRole role, int? numericId, string name, string email, string course, string section, string yearLevel) AuthenticateUser(string userId, string password)
         {
             using var conn = Database.GetConnection();
             conn.Open();
@@ -311,7 +311,7 @@ namespace EvaluaTeach
                     int adminId = adminReader.GetInt32("AdminID");
                     string name = $"{adminReader.GetString("FirstName")} {adminReader.GetString("LastName")}";
                     string email = adminReader.GetString("Email");
-                    return (true, UserRole.Admin, adminId, name, email, "");
+                    return (true, UserRole.Admin, adminId, name, email, "", "", "");
                 }
             }
 
@@ -331,13 +331,13 @@ namespace EvaluaTeach
                     int teacherId = teacherReader.GetInt32("TeacherID");
                     string name = $"{teacherReader.GetString("FirstName")} {teacherReader.GetString("LastName")}";
                     string email = teacherReader.IsDBNull(teacherReader.GetOrdinal("Email")) ? "" : teacherReader.GetString("Email");
-                    return (true, UserRole.Teacher, teacherId, name, email, "");
+                    return (true, UserRole.Teacher, teacherId, name, email, "", "", "");
                 }
             }
 
             // 3. Try Student
             var studentCmd = new MySqlCommand(@"
-                SELECT StudentID, FirstName, LastName, Email, Course
+                SELECT StudentID, FirstName, LastName, Email, Course, Section, YearLevel
                 FROM Student
                 WHERE IDNumber = @id AND Password = @password
                 LIMIT 1", conn);
@@ -351,12 +351,14 @@ namespace EvaluaTeach
                     int studentId = studentReader.GetInt32("StudentID");
                     string name = $"{studentReader.GetString("FirstName")} {studentReader.GetString("LastName")}";
                     string email = studentReader.GetString("Email");
-                    string course = studentReader.GetString("Course");
-                    return (true, UserRole.Student, studentId, name, email, course);
+                    string course = studentReader.IsDBNull(studentReader.GetOrdinal("Course")) ? "" : studentReader.GetString("Course");
+                    string section = studentReader.IsDBNull(studentReader.GetOrdinal("Section")) ? "" : studentReader.GetString("Section");
+                    string yearLevel = studentReader.IsDBNull(studentReader.GetOrdinal("YearLevel")) ? "" : studentReader.GetInt32("YearLevel").ToString();
+                    return (true, UserRole.Student, studentId, name, email, course, section, yearLevel);
                 }
             }
 
-            return (false, UserRole.Student, null, "", "", "");
+            return (false, UserRole.Student, null, "", "", "", "", "");
         }
     }
 }

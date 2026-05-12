@@ -313,12 +313,50 @@ namespace EvaluaTeach
         {
             using var conn = Database.GetConnection();
             conn.Open();
+            using var tx = conn.BeginTransaction();
 
-            var cmd = new MySqlCommand("DELETE FROM EvaluationForm WHERE EvaluationID = @id", conn);
-            cmd.Parameters.AddWithValue("@id", id);
-            cmd.ExecuteNonQuery();
+            try
+            {
+                // Delete form responses first (they reference form submissions)
+                var deleteResponses = new MySqlCommand(@"
+                    DELETE sr FROM surveyresponse sr
+                    INNER JOIN formsubmission fs ON sr.SubmissionID = fs.SubmissionID
+                    WHERE fs.EvaluationID = @id", conn, tx);
+                deleteResponses.Parameters.AddWithValue("@id", id);
+                deleteResponses.ExecuteNonQuery();
 
-            FormsUpdated?.Invoke();
+                // Delete form submissions
+                var deleteSubmissions = new MySqlCommand(
+                    "DELETE FROM FormSubmission WHERE EvaluationID = @id", conn, tx);
+                deleteSubmissions.Parameters.AddWithValue("@id", id);
+                deleteSubmissions.ExecuteNonQuery();
+
+                // Delete comments referencing this form
+                var deleteComments = new MySqlCommand(
+                    "DELETE FROM Comment WHERE FormTitle IN (SELECT Title FROM EvaluationForm WHERE EvaluationID = @id)", conn, tx);
+                deleteComments.Parameters.AddWithValue("@id", id);
+                deleteComments.ExecuteNonQuery();
+
+                // Delete form questions
+                var deleteQuestions = new MySqlCommand(
+                    "DELETE FROM surveyquestion WHERE EvaluationID = @id", conn, tx);
+                deleteQuestions.Parameters.AddWithValue("@id", id);
+                deleteQuestions.ExecuteNonQuery();
+
+                // Finally delete the form
+                var deleteForm = new MySqlCommand(
+                    "DELETE FROM EvaluationForm WHERE EvaluationID = @id", conn, tx);
+                deleteForm.Parameters.AddWithValue("@id", id);
+                deleteForm.ExecuteNonQuery();
+
+                tx.Commit();
+                FormsUpdated?.Invoke();
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
         }
 
         // ==================== RESPONSES ====================

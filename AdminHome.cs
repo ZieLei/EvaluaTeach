@@ -62,6 +62,16 @@ namespace EvaluaTeach
                 FormDataStore.ResponsesUpdated -= OnDataUpdated;
                 FormDataStore.CommentsUpdated -= OnDataUpdated;
             };
+
+            // Delayed refresh after 200ms to ensure proper layout
+            var refreshTimer = new System.Windows.Forms.Timer { Interval = 200 };
+            refreshTimer.Tick += (_, _) =>
+            {
+                refreshTimer.Stop();
+                refreshTimer.Dispose();
+                ShowDashboard();
+            };
+            refreshTimer.Start();
         }
 
         private void ConfigureAdminUi()
@@ -277,40 +287,41 @@ namespace EvaluaTeach
 
         private void ConfigureStatsCards()
         {
-            int cardWidth = 180;
-            int cardHeight = 118;
-            int startX = 32;
-            int spacing = 16;
+            // Compact layout
+            int cardWidth = 155;
+            int cardHeight = 75;
+            int startX = 24;
+            int spacing = 10;
 
             statsLabel1.BackColor = Color.White;
             statsLabel1.Size = new Size(cardWidth, cardHeight);
             statsLabel1.Location = new Point(startX, 52);
-            statsLabel1.Padding = new Padding(16);
-            statsLabel1.Font = new Font("Inter", 11F);
+            statsLabel1.Padding = new Padding(12, 10, 12, 10);
+            statsLabel1.Font = new Font("Inter", 10F);
             statsLabel1.ForeColor = Color.FromArgb(71, 85, 105);
             statsLabel1.TextAlign = ContentAlignment.TopLeft;
 
             statsLabel2.BackColor = Color.White;
             statsLabel2.Size = new Size(cardWidth, cardHeight);
             statsLabel2.Location = new Point(startX + cardWidth + spacing, 52);
-            statsLabel2.Padding = new Padding(16);
-            statsLabel2.Font = new Font("Inter", 11F);
+            statsLabel2.Padding = new Padding(12, 10, 12, 10);
+            statsLabel2.Font = new Font("Inter", 10F);
             statsLabel2.ForeColor = Color.FromArgb(71, 85, 105);
             statsLabel2.TextAlign = ContentAlignment.TopLeft;
 
             statsLabel3.BackColor = Color.White;
             statsLabel3.Size = new Size(cardWidth, cardHeight);
             statsLabel3.Location = new Point(startX + (cardWidth + spacing) * 2, 52);
-            statsLabel3.Padding = new Padding(16);
-            statsLabel3.Font = new Font("Inter", 11F);
+            statsLabel3.Padding = new Padding(12, 10, 12, 10);
+            statsLabel3.Font = new Font("Inter", 10F);
             statsLabel3.ForeColor = Color.FromArgb(71, 85, 105);
             statsLabel3.TextAlign = ContentAlignment.TopLeft;
 
             statsLabel4.BackColor = Color.FromArgb(255, 247, 237);
             statsLabel4.Size = new Size(cardWidth, cardHeight);
             statsLabel4.Location = new Point(startX + (cardWidth + spacing) * 3, 52);
-            statsLabel4.Padding = new Padding(16);
-            statsLabel4.Font = new Font("Inter", 11F);
+            statsLabel4.Padding = new Padding(12, 10, 12, 10);
+            statsLabel4.Font = new Font("Inter", 10F);
             statsLabel4.ForeColor = Color.FromArgb(154, 52, 18);
             statsLabel4.TextAlign = ContentAlignment.TopLeft;
 
@@ -328,10 +339,10 @@ namespace EvaluaTeach
 
             int pendingComments = 0;
             try { pendingComments = FormDataStore.GetPendingCommentCount(); } catch { }
-            statsLabel1.Text = $"Total Forms\n\n{forms.Count}";
-            statsLabel2.Text = $"Active Forms\n\n{activeCount}";
-            statsLabel3.Text = $"Total Responses\n\n{totalResponses}";
-            statsLabel4.Text = $"Pending Comments\n\n{pendingComments}";
+            statsLabel1.Text = $"Total Forms\n{forms.Count}";
+            statsLabel2.Text = $"Active Forms\n{activeCount}";
+            statsLabel3.Text = $"Responses\n{totalResponses}";
+            statsLabel4.Text = $"Pending\n{pendingComments}";
         }
 
         private void LoadFormsList()
@@ -431,7 +442,7 @@ namespace EvaluaTeach
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
                 Size = new Size(70, 32),
-                Location = new Point(card.Width - 188, 90)
+                Location = new Point(card.Width - 298, 90)
             };
             editBtn.Click += (_, _) => EditForm(form);
 
@@ -444,9 +455,22 @@ namespace EvaluaTeach
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
                 Size = new Size(102, 32),
-                Location = new Point(card.Width - 110, 90)
+                Location = new Point(card.Width - 220, 90)
             };
             toggleBtn.Click += (_, _) => ToggleFormStatus(form);
+
+            var deleteBtn = new Button
+            {
+                Text = "Delete",
+                BackColor = Color.FromArgb(254, 242, 242),
+                ForeColor = Color.FromArgb(185, 28, 28),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                Size = new Size(70, 32),
+                Location = new Point(card.Width - 110, 90)
+            };
+            deleteBtn.Click += (_, _) => DeleteForm(form);
 
             card.Controls.Add(title);
             card.Controls.Add(description);
@@ -455,14 +479,16 @@ namespace EvaluaTeach
             card.Controls.Add(responsesLabel);
             card.Controls.Add(editBtn);
             card.Controls.Add(toggleBtn);
+            card.Controls.Add(deleteBtn);
 
             card.Resize += (_, _) =>
             {
                 statusBadge.Location = new Point(card.Width - 100, 20);
                 responsesLabel.Location = new Point(card.Width - 120, 50);
-                editBtn.Location = new Point(card.Width - 188, 90);
-                toggleBtn.Location = new Point(card.Width - 110, 90);
-                description.MaximumSize = new Size(card.Width - 240, 0);
+                editBtn.Location = new Point(card.Width - 298, 90);
+                toggleBtn.Location = new Point(card.Width - 220, 90);
+                deleteBtn.Location = new Point(card.Width - 110, 90);
+                description.MaximumSize = new Size(card.Width - 320, 0);
             };
 
             return card;
@@ -536,6 +562,29 @@ namespace EvaluaTeach
         {
             form.IsActive = !form.IsActive;
             FormDataStore.UpdateForm(form);
+        }
+
+        private void DeleteForm(EvaluationForm form)
+        {
+            var result = MessageBox.Show(
+                $"Are you sure you want to delete the form '{form.Title}'?\n\nThis action cannot be undone.",
+                "Confirm Delete",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result == DialogResult.Yes)
+            {
+                try
+                {
+                    FormDataStore.DeleteForm(form.Id);
+                    LoadFormsList();
+                    UpdateStats();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error deleting form: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
         }
 
         private void ShowDashboard()
@@ -2250,18 +2299,6 @@ namespace EvaluaTeach
             cmbDepartment.SelectedItem = teacher.Department ?? "BSIT";
             dialog.Controls.Add(cmbDepartment);
             y += 56;
-
-            // Note about subjects
-            var noteLabel = new Label
-            {
-                Text = "💡 Manage sections and subjects via the '📋 Subjects' button on the teacher card",
-                Font = new Font("Inter", 9F, FontStyle.Italic),
-                ForeColor = Color.FromArgb(100, 116, 139),
-                AutoSize = true,
-                Location = new Point(20, y)
-            };
-            dialog.Controls.Add(noteLabel);
-            y += 44;
 
             // Buttons
             var cancelBtn = new Button
