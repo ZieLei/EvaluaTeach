@@ -39,10 +39,14 @@ namespace EvaluaTeach
         private readonly TextBox teacherCourseInput = new();
         private readonly TextBox teacherYearLevelInput = new();
         private readonly Button profileBtn = new();
+        private readonly Button commentsBtn = new();
+        private readonly FlowLayoutPanel commentsListPanel = new();
+        private readonly Label statsLabel4 = new();
         private bool showingResponses;
         private bool showingTeachers;
         private bool showingStudents;
         private bool showingDashboard;
+        private bool showingComments;
 
         public AdminHome()
         {
@@ -52,10 +56,12 @@ namespace EvaluaTeach
             UpdateStats();
             FormDataStore.FormsUpdated += OnDataUpdated;
             FormDataStore.ResponsesUpdated += OnDataUpdated;
+            FormDataStore.CommentsUpdated += OnDataUpdated;
             FormClosed += (_, _) =>
             {
                 FormDataStore.FormsUpdated -= OnDataUpdated;
                 FormDataStore.ResponsesUpdated -= OnDataUpdated;
+                FormDataStore.CommentsUpdated -= OnDataUpdated;
             };
         }
 
@@ -140,10 +146,22 @@ namespace EvaluaTeach
             logoutBtn.TextAlign = ContentAlignment.MiddleCenter;
             logoutBtn.Click += (_, _) => Logout();
 
+            commentsBtn.Text = "  Comments";
+            commentsBtn.BackColor = Color.Transparent;
+            commentsBtn.ForeColor = Color.FromArgb(203, 213, 225);
+            commentsBtn.FlatStyle = FlatStyle.Flat;
+            commentsBtn.FlatAppearance.BorderSize = 0;
+            commentsBtn.Font = new Font("Inter", 11F);
+            commentsBtn.Size = new Size(192, 48);
+            commentsBtn.Location = new Point(24, 264);
+            commentsBtn.TextAlign = ContentAlignment.MiddleLeft;
+            commentsBtn.Click += (_, _) => ShowComments();
+
             sidebar.Controls.Add(dashboardBtn);
             sidebar.Controls.Add(responsesBtn);
             sidebar.Controls.Add(teachersBtn);
             sidebar.Controls.Add(studentsBtn);
+            sidebar.Controls.Add(commentsBtn);
             sidebar.Controls.Add(logoutBtn);
         }
 
@@ -242,10 +260,20 @@ namespace EvaluaTeach
             teachersListPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             teachersListPanel.Visible = false;
 
+            commentsListPanel.FlowDirection = FlowDirection.TopDown;
+            commentsListPanel.WrapContents = false;
+            commentsListPanel.AutoScroll = true;
+            commentsListPanel.BackColor = Color.Transparent;
+            commentsListPanel.Location = new Point(32, 56);
+            commentsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 72);
+            commentsListPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            commentsListPanel.Visible = false;
+
             contentPanel.Controls.Add(dashboardSubtitleLabel);
             contentPanel.Controls.Add(responsesSubtitleLabel);
             contentPanel.Controls.Add(formsListPanel);
             contentPanel.Controls.Add(teachersListPanel);
+            contentPanel.Controls.Add(commentsListPanel);
         }
 
         private void ConfigureStatsCards()
@@ -279,9 +307,18 @@ namespace EvaluaTeach
             statsLabel3.ForeColor = Color.FromArgb(71, 85, 105);
             statsLabel3.TextAlign = ContentAlignment.TopLeft;
 
+            statsLabel4.BackColor = Color.FromArgb(255, 247, 237);
+            statsLabel4.Size = new Size(cardWidth, cardHeight);
+            statsLabel4.Location = new Point(startX + (cardWidth + spacing) * 3, 52);
+            statsLabel4.Padding = new Padding(16);
+            statsLabel4.Font = new Font("Inter", 11F);
+            statsLabel4.ForeColor = Color.FromArgb(154, 52, 18);
+            statsLabel4.TextAlign = ContentAlignment.TopLeft;
+
             contentPanel.Controls.Add(statsLabel1);
             contentPanel.Controls.Add(statsLabel2);
             contentPanel.Controls.Add(statsLabel3);
+            contentPanel.Controls.Add(statsLabel4);
         }
 
         private void UpdateStats()
@@ -290,9 +327,12 @@ namespace EvaluaTeach
             var activeCount = forms.Count(f => f.IsActive);
             var totalResponses = forms.Sum(f => FormDataStore.GetSubmissionCount(f.Id));
 
+            int pendingComments = 0;
+            try { pendingComments = FormDataStore.GetPendingCommentCount(); } catch { }
             statsLabel1.Text = $"Total Forms\n\n{forms.Count}";
             statsLabel2.Text = $"Active Forms\n\n{activeCount}";
             statsLabel3.Text = $"Total Responses\n\n{totalResponses}";
+            statsLabel4.Text = $"Pending Comments\n\n{pendingComments}";
         }
 
         private void LoadFormsList()
@@ -457,13 +497,12 @@ namespace EvaluaTeach
             }
 
             if (showingResponses)
-            {
                 LoadResponsesView();
-            }
+            else if (showingComments)
+                LoadCommentsView(false);
             else
-            {
                 LoadFormsList();
-            }
+
             UpdateStats();
         }
 
@@ -505,6 +544,7 @@ namespace EvaluaTeach
             showingResponses = false;
             showingTeachers = false;
             showingStudents = false;
+            showingComments = false;
             UpdateNavButtons();
             titleLabel.Text = "Evaluation Forms Management";
             createFormBtn.Visible = true;
@@ -513,10 +553,12 @@ namespace EvaluaTeach
             statsLabel1.Visible = true;
             statsLabel2.Visible = true;
             statsLabel3.Visible = true;
+            statsLabel4.Visible = true;
             formsListPanel.Visible = true;
             formsListPanel.Location = new Point(32, 190);
             formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 206);
             teachersListPanel.Visible = false;
+            commentsListPanel.Visible = false;
             LoadFormsList();
         }
 
@@ -525,6 +567,7 @@ namespace EvaluaTeach
             showingResponses = true;
             showingTeachers = false;
             showingStudents = false;
+            showingComments = false;
             UpdateNavButtons();
             titleLabel.Text = "Student Responses";
             createFormBtn.Visible = false;
@@ -533,10 +576,12 @@ namespace EvaluaTeach
             statsLabel1.Visible = false;
             statsLabel2.Visible = false;
             statsLabel3.Visible = false;
+            statsLabel4.Visible = false;
             formsListPanel.Visible = true;
             formsListPanel.Location = new Point(32, 56);
             formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 72);
             teachersListPanel.Visible = false;
+            commentsListPanel.Visible = false;
             LoadResponsesView();
         }
 
@@ -545,6 +590,7 @@ namespace EvaluaTeach
             showingResponses = false;
             showingTeachers = true;
             showingStudents = false;
+            showingComments = false;
             UpdateNavButtons();
             titleLabel.Text = "Teacher Management";
             createFormBtn.Visible = false;
@@ -553,21 +599,49 @@ namespace EvaluaTeach
             statsLabel1.Visible = false;
             statsLabel2.Visible = false;
             statsLabel3.Visible = false;
+            statsLabel4.Visible = false;
             formsListPanel.Visible = false;
             teachersListPanel.Visible = true;
+            commentsListPanel.Visible = false;
             LoadTeachersView();
+        }
+
+        private void ShowComments()
+        {
+            showingResponses = false;
+            showingTeachers = false;
+            showingStudents = false;
+            showingComments = true;
+            UpdateNavButtons();
+            titleLabel.Text = "Comment Moderation";
+            createFormBtn.Visible = false;
+            dashboardSubtitleLabel.Visible = false;
+            responsesSubtitleLabel.Visible = false;
+            statsLabel1.Visible = false;
+            statsLabel2.Visible = false;
+            statsLabel3.Visible = false;
+            statsLabel4.Visible = false;
+            formsListPanel.Visible = false;
+            teachersListPanel.Visible = false;
+            commentsListPanel.Visible = true;
+            commentsListPanel.Location = new Point(32, 56);
+            commentsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 72);
+            LoadCommentsView(false);
         }
 
         private void UpdateNavButtons()
         {
-            dashboardBtn.BackColor = showingResponses || showingTeachers || showingStudents ? Color.Transparent : Color.FromArgb(38, 166, 91);
-            dashboardBtn.ForeColor = showingResponses || showingTeachers || showingStudents ? Color.FromArgb(203, 213, 225) : Color.White;
+            bool onDash = !showingResponses && !showingTeachers && !showingStudents && !showingComments;
+            dashboardBtn.BackColor = onDash ? Color.FromArgb(38, 166, 91) : Color.Transparent;
+            dashboardBtn.ForeColor = onDash ? Color.White : Color.FromArgb(203, 213, 225);
             responsesBtn.BackColor = showingResponses ? Color.FromArgb(38, 166, 91) : Color.Transparent;
             responsesBtn.ForeColor = showingResponses ? Color.White : Color.FromArgb(203, 213, 225);
             teachersBtn.BackColor = showingTeachers ? Color.FromArgb(38, 166, 91) : Color.Transparent;
             teachersBtn.ForeColor = showingTeachers ? Color.White : Color.FromArgb(203, 213, 225);
             studentsBtn.BackColor = showingStudents ? Color.FromArgb(38, 166, 91) : Color.Transparent;
             studentsBtn.ForeColor = showingStudents ? Color.White : Color.FromArgb(203, 213, 225);
+            commentsBtn.BackColor = showingComments ? Color.FromArgb(38, 166, 91) : Color.Transparent;
+            commentsBtn.ForeColor = showingComments ? Color.White : Color.FromArgb(203, 213, 225);
         }
 
         private void LoadResponsesView()
@@ -1192,6 +1266,361 @@ namespace EvaluaTeach
                 "Report Ready",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
+        }
+
+        private void LoadCommentsView(bool showAll)
+        {
+            commentsListPanel.Controls.Clear();
+
+            var comments = showAll ? FormDataStore.GetAllComments() : FormDataStore.GetPendingComments();
+
+            // Filter tab strip
+            var tabStrip = new Panel
+            {
+                BackColor = Color.White,
+                Size = new Size(commentsListPanel.Width - 40, 52),
+                Margin = new Padding(0, 0, 0, 12)
+            };
+
+            var pendingTab = new Button
+            {
+                Text = $"Pending ({FormDataStore.GetPendingCommentCount()})",
+                BackColor = !showAll ? Color.FromArgb(38, 166, 91) : Color.FromArgb(248, 250, 252),
+                ForeColor = !showAll ? Color.White : Color.FromArgb(71, 85, 105),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(140, 36),
+                Location = new Point(16, 8)
+            };
+            pendingTab.Click += (_, _) => LoadCommentsView(false);
+
+            var allTab = new Button
+            {
+                Text = "All Comments",
+                BackColor = showAll ? Color.FromArgb(38, 166, 91) : Color.FromArgb(248, 250, 252),
+                ForeColor = showAll ? Color.White : Color.FromArgb(71, 85, 105),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(140, 36),
+                Location = new Point(168, 8)
+            };
+            allTab.Click += (_, _) => LoadCommentsView(true);
+
+            tabStrip.Controls.Add(pendingTab);
+            tabStrip.Controls.Add(allTab);
+            commentsListPanel.Controls.Add(tabStrip);
+
+            if (!comments.Any())
+            {
+                var emptyPanel = new Panel
+                {
+                    BackColor = Color.White,
+                    Size = new Size(commentsListPanel.Width - 40, 160),
+                    Margin = new Padding(0, 0, 0, 0)
+                };
+                var emptyLabel = new Label
+                {
+                    Text = showAll ? "No comments found." : "No pending comments.",
+                    Font = new Font("Inter", 13F),
+                    ForeColor = Color.FromArgb(148, 163, 184),
+                    AutoSize = true,
+                    Location = new Point(32, 60)
+                };
+                emptyPanel.Controls.Add(emptyLabel);
+                commentsListPanel.Controls.Add(emptyPanel);
+                return;
+            }
+
+            foreach (var comment in comments)
+            {
+                var card = CreateCommentCard(comment, showAll);
+                commentsListPanel.Controls.Add(card);
+            }
+        }
+
+        private Panel CreateCommentCard(FormComment comment, bool showAll)
+        {
+            var effectiveLevel = comment.AdminLevel ?? comment.SystemLevel;
+
+            Color levelBg = effectiveLevel switch
+            {
+                CommentLevel.Severe   => Color.FromArgb(254, 226, 226),
+                CommentLevel.Moderate => Color.FromArgb(255, 237, 213),
+                CommentLevel.Mild     => Color.FromArgb(254, 252, 232),
+                _                     => Color.FromArgb(220, 252, 231)
+            };
+            Color levelFg = effectiveLevel switch
+            {
+                CommentLevel.Severe   => Color.FromArgb(153, 27, 27),
+                CommentLevel.Moderate => Color.FromArgb(154, 52, 18),
+                CommentLevel.Mild     => Color.FromArgb(133, 77, 14),
+                _                     => Color.FromArgb(22, 101, 52)
+            };
+            Color accentColor = effectiveLevel switch
+            {
+                CommentLevel.Severe   => Color.FromArgb(220, 38, 38),
+                CommentLevel.Moderate => Color.FromArgb(249, 115, 22),
+                CommentLevel.Mild     => Color.FromArgb(234, 179, 8),
+                _                     => Color.FromArgb(38, 166, 91)
+            };
+
+            bool isSevere = effectiveLevel == CommentLevel.Severe;
+            int cardHeight = isSevere ? 320 : 270;
+
+            var card = new Panel
+            {
+                BackColor = Color.White,
+                Size = new Size(commentsListPanel.Width - 40, cardHeight),
+                Margin = new Padding(0, 0, 0, 14),
+                Padding = new Padding(0)
+            };
+
+            var accentBar = new Panel
+            {
+                BackColor = accentColor,
+                Size = new Size(5, card.Height),
+                Location = new Point(0, 0)
+            };
+            card.Controls.Add(accentBar);
+
+            int x = 20;
+            int y = 16;
+
+            // Student name
+            var nameLabel = new Label
+            {
+                Text = string.IsNullOrEmpty(comment.StudentName) ? comment.StudentId : comment.StudentName,
+                Font = new Font("Inter SemiBold", 12F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(x, y)
+            };
+            card.Controls.Add(nameLabel);
+
+            // Form title badge
+            var formBadge = new Label
+            {
+                Text = comment.FormTitle,
+                Font = new Font("Inter", 9F),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                BackColor = Color.FromArgb(241, 245, 249),
+                AutoSize = true,
+                Padding = new Padding(6, 2, 6, 2),
+                Location = new Point(x, y + 28)
+            };
+            card.Controls.Add(formBadge);
+
+            // Date submitted
+            var dateLabel = new Label
+            {
+                Text = comment.SubmittedAt.ToString("MMM dd, yyyy HH:mm"),
+                Font = new Font("Inter", 9F),
+                ForeColor = Color.FromArgb(148, 163, 184),
+                AutoSize = true,
+                Location = new Point(x, y + 52)
+            };
+            card.Controls.Add(dateLabel);
+
+            // System level badge
+            var sysLevelBadge = new Label
+            {
+                Text = $"System: {comment.SystemLevel}",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = levelFg,
+                BackColor = levelBg,
+                AutoSize = true,
+                Padding = new Padding(8, 3, 8, 3),
+                Location = new Point(card.Width - 280, y)
+            };
+            sysLevelBadge.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            card.Controls.Add(sysLevelBadge);
+
+            // Status badge
+            Color statusBg = comment.Status switch
+            {
+                CommentStatus.Approved => Color.FromArgb(220, 252, 231),
+                CommentStatus.Rejected => Color.FromArgb(254, 226, 226),
+                _                      => Color.FromArgb(255, 247, 237)
+            };
+            Color statusFg = comment.Status switch
+            {
+                CommentStatus.Approved => Color.FromArgb(22, 101, 52),
+                CommentStatus.Rejected => Color.FromArgb(153, 27, 27),
+                _                      => Color.FromArgb(154, 52, 18)
+            };
+            var statusBadge = new Label
+            {
+                Text = comment.Status.ToString(),
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = statusFg,
+                BackColor = statusBg,
+                AutoSize = true,
+                Padding = new Padding(8, 3, 8, 3),
+                Location = new Point(card.Width - 170, y)
+            };
+            statusBadge.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            card.Controls.Add(statusBadge);
+
+            // Comment text box
+            var commentBox = new TextBox
+            {
+                Text = comment.CommentText,
+                Multiline = true,
+                ReadOnly = true,
+                ScrollBars = ScrollBars.Vertical,
+                Font = new Font("Inter", 11F),
+                BackColor = Color.FromArgb(248, 250, 252),
+                BorderStyle = BorderStyle.FixedSingle,
+                Location = new Point(x, y + 82),
+                Size = new Size(card.Width - x * 2 - 10, 70),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            card.Controls.Add(commentBox);
+
+            // Classifier description
+            var classifierDesc = new Label
+            {
+                Text = CommentClassifier.GetLevelDescription(comment.SystemLevel),
+                Font = new Font("Inter", 9F, FontStyle.Italic),
+                ForeColor = levelFg,
+                AutoSize = false,
+                Size = new Size(card.Width - x * 2 - 10, 20),
+                Location = new Point(x, y + 158),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            card.Controls.Add(classifierDesc);
+
+            // Severe: student contact info banner
+            if (isSevere)
+            {
+                var contactBanner = new Panel
+                {
+                    BackColor = Color.FromArgb(254, 226, 226),
+                    Size = new Size(card.Width - x * 2 - 10, 44),
+                    Location = new Point(x, y + 184),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                };
+                var contactLabel = new Label
+                {
+                    Text = $"Contact Student  |  ID: {comment.StudentId}" +
+                           (string.IsNullOrEmpty(comment.StudentEmail) ? "" : $"  |  Email: {comment.StudentEmail}"),
+                    Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(153, 27, 27),
+                    AutoSize = false,
+                    Size = new Size(contactBanner.Width - 16, 44),
+                    Location = new Point(8, 0),
+                    TextAlign = ContentAlignment.MiddleLeft
+                };
+                contactBanner.Controls.Add(contactLabel);
+                card.Controls.Add(contactBanner);
+            }
+
+            int btnY = isSevere ? y + 240 : y + 190;
+
+            // Admin level override
+            var levelLabel = new Label
+            {
+                Text = "Set Level:",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                AutoSize = true,
+                Location = new Point(x, btnY + 4)
+            };
+            card.Controls.Add(levelLabel);
+
+            var levelDropdown = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("Inter", 10F),
+                Location = new Point(x + 72, btnY),
+                Size = new Size(110, 26)
+            };
+            levelDropdown.Items.AddRange(new[] { "Normal", "Mild", "Moderate", "Severe" });
+            levelDropdown.SelectedItem = (comment.AdminLevel ?? comment.SystemLevel).ToString();
+            card.Controls.Add(levelDropdown);
+
+            // Approve button
+            var approveBtn = new Button
+            {
+                Text = "Approve",
+                BackColor = Color.FromArgb(220, 252, 231),
+                ForeColor = Color.FromArgb(22, 101, 52),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                Size = new Size(90, 32),
+                Location = new Point(card.Width - 204, btnY),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+            approveBtn.Click += (_, _) =>
+            {
+                var selectedLevel = levelDropdown.SelectedItem?.ToString() ?? comment.SystemLevel.ToString();
+                var adminLevel = Enum.TryParse<CommentLevel>(selectedLevel, out var lv) ? lv : comment.SystemLevel;
+                FormDataStore.UpdateCommentStatus(comment.Id, CommentStatus.Approved, adminLevel, SessionStore.UserName);
+                LoadCommentsView(showAll);
+                UpdateStats();
+            };
+            card.Controls.Add(approveBtn);
+
+            // Reject button
+            var rejectBtn = new Button
+            {
+                Text = "Reject",
+                BackColor = Color.FromArgb(254, 226, 226),
+                ForeColor = Color.FromArgb(153, 27, 27),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                Size = new Size(90, 32),
+                Location = new Point(card.Width - 104, btnY),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+            rejectBtn.Click += (_, _) =>
+            {
+                var selectedLevel = levelDropdown.SelectedItem?.ToString() ?? comment.SystemLevel.ToString();
+                var adminLevel = Enum.TryParse<CommentLevel>(selectedLevel, out var lv) ? lv : comment.SystemLevel;
+                FormDataStore.UpdateCommentStatus(comment.Id, CommentStatus.Rejected, adminLevel, SessionStore.UserName);
+                LoadCommentsView(showAll);
+                UpdateStats();
+            };
+            card.Controls.Add(rejectBtn);
+
+            // Disable approve/reject if already reviewed
+            if (comment.Status != CommentStatus.Pending)
+            {
+                approveBtn.Enabled = false;
+                rejectBtn.Enabled = false;
+                levelDropdown.Enabled = false;
+                var reviewedLabel = new Label
+                {
+                    Text = $"Reviewed by {(string.IsNullOrEmpty(comment.ReviewedBy) ? "admin" : comment.ReviewedBy)} on {comment.ReviewedAt:MMM dd, yyyy}",
+                    Font = new Font("Inter", 8F, FontStyle.Italic),
+                    ForeColor = Color.FromArgb(148, 163, 184),
+                    AutoSize = true,
+                    Location = new Point(x, btnY + 36)
+                };
+                card.Controls.Add(reviewedLabel);
+            }
+
+            card.Resize += (_, _) =>
+            {
+                accentBar.Size = new Size(5, card.Height);
+                commentBox.Size = new Size(card.Width - x * 2 - 10, 70);
+                classifierDesc.Size = new Size(card.Width - x * 2 - 10, 20);
+                if (isSevere)
+                {
+                    var banner = card.Controls.OfType<Panel>().FirstOrDefault(p => p.BackColor == Color.FromArgb(254, 226, 226) && p.Location.Y == y + 184);
+                    if (banner != null) banner.Size = new Size(card.Width - x * 2 - 10, 44);
+                }
+                sysLevelBadge.Location = new Point(card.Width - 280, y);
+                statusBadge.Location = new Point(card.Width - 170, y);
+                approveBtn.Location = new Point(card.Width - 204, btnY);
+                rejectBtn.Location = new Point(card.Width - 104, btnY);
+            };
+
+            return card;
         }
 
         private void Logout()
@@ -2161,6 +2590,7 @@ namespace EvaluaTeach
             showingResponses = false;
             showingTeachers = false;
             showingStudents = true;
+            showingComments = false;
             UpdateNavButtons();
             titleLabel.Text = "Student Management";
             createFormBtn.Visible = false;
@@ -2169,8 +2599,10 @@ namespace EvaluaTeach
             statsLabel1.Visible = false;
             statsLabel2.Visible = false;
             statsLabel3.Visible = false;
+            statsLabel4.Visible = false;
             formsListPanel.Visible = false;
             teachersListPanel.Visible = true;
+            commentsListPanel.Visible = false;
             LoadStudentsView();
         }
 

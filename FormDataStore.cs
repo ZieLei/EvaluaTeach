@@ -9,6 +9,7 @@ namespace EvaluaTeach
     {
         public static event Action? FormsUpdated;
         public static event Action? ResponsesUpdated;
+        public static event Action? CommentsUpdated;
 
         // ==================== FORMS ====================
 
@@ -476,6 +477,143 @@ namespace EvaluaTeach
 
             return Convert.ToInt32(cmd.ExecuteScalar());
         }
+
+        // ==================== COMMENTS ====================
+
+        public static void AddComment(FormComment comment)
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                INSERT INTO comment
+                    (StudentID, TeacherID, Content, DateSubmitted, Status,
+                     SubmissionID, FormTitle, SystemLevel)
+                VALUES
+                    (@studentId, @teacherId, @content, @dateSubmitted, @status,
+                     @submissionId, @formTitle, @systemLevel)", conn);
+            cmd.Parameters.AddWithValue("@studentId",
+                comment.StudentDbId.HasValue ? (object)comment.StudentDbId.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@teacherId", DBNull.Value);
+            cmd.Parameters.AddWithValue("@content", comment.CommentText);
+            cmd.Parameters.AddWithValue("@dateSubmitted", comment.SubmittedAt);
+            cmd.Parameters.AddWithValue("@status", comment.Status.ToString());
+            cmd.Parameters.AddWithValue("@submissionId",
+                comment.SubmissionId > 0 ? (object)comment.SubmissionId : DBNull.Value);
+            cmd.Parameters.AddWithValue("@formTitle", (object?)comment.FormTitle ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@systemLevel", comment.SystemLevel.ToString());
+            cmd.ExecuteNonQuery();
+
+            comment.Id = (int)cmd.LastInsertedId;
+            CommentsUpdated?.Invoke();
+        }
+
+        public static void UpdateCommentStatus(int commentId, CommentStatus status, CommentLevel adminLevel, string reviewedBy)
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                UPDATE comment
+                SET Status = @status, AdminLevel = @adminLevel,
+                    ReviewedAt = @reviewedAt, ReviewedBy = @reviewedBy
+                WHERE CommentID = @id", conn);
+            cmd.Parameters.AddWithValue("@id", commentId);
+            cmd.Parameters.AddWithValue("@status", status.ToString());
+            cmd.Parameters.AddWithValue("@adminLevel", adminLevel.ToString());
+            cmd.Parameters.AddWithValue("@reviewedAt", DateTime.Now);
+            cmd.Parameters.AddWithValue("@reviewedBy", reviewedBy);
+            cmd.ExecuteNonQuery();
+
+            CommentsUpdated?.Invoke();
+        }
+
+        public static List<FormComment> GetPendingComments()
+        {
+            return GetCommentsByStatus("Pending");
+        }
+
+        public static List<FormComment> GetAllComments()
+        {
+            return GetCommentsByStatus(null);
+        }
+
+        private static List<FormComment> GetCommentsByStatus(string? status)
+        {
+            var comments = new List<FormComment>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            string sql = @"
+                SELECT c.CommentID, c.StudentID, c.Content, c.DateSubmitted, c.Status,
+                       c.SubmissionID, c.FormTitle, c.SystemLevel, c.AdminLevel,
+                       c.ReviewedAt, c.ReviewedBy,
+                       s.IDNumber, s.FirstName, s.LastName, s.Email
+                FROM comment c
+                LEFT JOIN student s ON s.StudentID = c.StudentID";
+
+            if (status != null)
+                sql += " WHERE c.Status = @status";
+
+            sql += " ORDER BY c.DateSubmitted DESC";
+
+            var cmd = new MySqlCommand(sql, conn);
+            if (status != null)
+                cmd.Parameters.AddWithValue("@status", status);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var adminLevelStr = reader.IsDBNull(reader.GetOrdinal("AdminLevel")) ? null : reader.GetString("AdminLevel");
+                var firstName = reader.IsDBNull(reader.GetOrdinal("FirstName")) ? "" : reader.GetString("FirstName");
+                var lastName  = reader.IsDBNull(reader.GetOrdinal("LastName"))  ? "" : reader.GetString("LastName");
+                var idNumber  = reader.IsDBNull(reader.GetOrdinal("IDNumber"))  ? "" : reader.GetString("IDNumber");
+                var email     = reader.IsDBNull(reader.GetOrdinal("Email"))     ? "" : reader.GetString("Email");
+                int? dbStudentId = reader.IsDBNull(reader.GetOrdinal("StudentID")) ? null : reader.GetInt32("StudentID");
+
+                comments.Add(new FormComment
+                {
+                    Id = reader.GetInt32("CommentID"),
+                    StudentDbId = dbStudentId,
+                    SubmissionId = reader.IsDBNull(reader.GetOrdinal("SubmissionID")) ? 0 : reader.GetInt32("SubmissionID"),
+                    StudentId = idNumber,
+                    StudentName = $"{firstName} {lastName}".Trim(),
+                    StudentEmail = email,
+                    FormTitle = reader.IsDBNull(reader.GetOrdinal("FormTitle")) ? "" : reader.GetString("FormTitle"),
+                    CommentText = reader.IsDBNull(reader.GetOrdinal("Content")) ? "" : reader.GetString("Content"),
+                    SystemLevel = reader.IsDBNull(reader.GetOrdinal("SystemLevel")) ? CommentLevel.Normal : ParseCommentLevel(reader.GetString("SystemLevel")),
+                    AdminLevel = adminLevelStr == null ? null : ParseCommentLevel(adminLevelStr),
+                    Status = ParseCommentStatus(reader.GetString("Status")),
+                    SubmittedAt = reader.IsDBNull(reader.GetOrdinal("DateSubmitted")) ? DateTime.Now : reader.GetDateTime("DateSubmitted"),
+                    ReviewedAt = reader.IsDBNull(reader.GetOrdinal("ReviewedAt")) ? null : reader.GetDateTime("ReviewedAt"),
+                    ReviewedBy = reader.IsDBNull(reader.GetOrdinal("ReviewedBy")) ? "" : reader.GetString("ReviewedBy")
+                });
+            }
+            return comments;
+        }
+
+        public static int GetPendingCommentCount()
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+            var cmd = new MySqlCommand("SELECT COUNT(*) FROM comment WHERE Status = 'Pending'", conn);
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+
+        private static CommentLevel ParseCommentLevel(string level) => level?.ToLower() switch
+        {
+            "mild"     => CommentLevel.Mild,
+            "moderate" => CommentLevel.Moderate,
+            "severe"   => CommentLevel.Severe,
+            _          => CommentLevel.Normal
+        };
+
+        private static CommentStatus ParseCommentStatus(string status) => status?.ToLower() switch
+        {
+            "approved" => CommentStatus.Approved,
+            "rejected" => CommentStatus.Rejected,
+            _          => CommentStatus.Pending
+        };
 
         // ==================== HELPERS ====================
 

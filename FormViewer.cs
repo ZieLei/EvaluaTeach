@@ -16,6 +16,8 @@ namespace EvaluaTeach
         private readonly Dictionary<int, Control> answerControls = new();
         private readonly FlowLayoutPanel questionsPanel = new();
         private Label progressLabel = null!;
+        private TextBox commentTextBox = null!;  // assigned in BuildCommentPanel before any submit
+        private bool commentPendingEdit = false;
 
         public event Action? FormSubmitted;
 
@@ -195,6 +197,9 @@ namespace EvaluaTeach
                 var questionPanel = CreateQuestionPanel(question);
                 questionsPanel.Controls.Add(questionPanel);
             }
+
+            var commentPanel = BuildCommentPanel();
+            questionsPanel.Controls.Add(commentPanel);
 
             questionsPanel.PerformLayout();
 
@@ -462,6 +467,61 @@ namespace EvaluaTeach
             progressLabel.Text = $"{answered} of {form.Questions.Count} answered";
         }
 
+        private Panel BuildCommentPanel()
+        {
+            var panel = new Panel
+            {
+                BackColor = Color.White,
+                Size = new Size(800, 200),
+                Margin = new Padding(0, 0, 0, 16),
+                Padding = new Padding(24)
+            };
+
+            var label = new Label
+            {
+                Text = $"{form.Questions.Count + 1}. Additional Comments (Optional)",
+                Font = new Font("Inter", 12F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                AutoSize = true,
+                Location = new Point(24, 20),
+                MaximumSize = new Size(panel.Width - 48, 0)
+            };
+
+            var hint = new Label
+            {
+                Text = "Share any additional feedback. This field is optional.",
+                Font = new Font("Inter", 9F),
+                ForeColor = Color.FromArgb(148, 163, 184),
+                AutoSize = true,
+                Location = new Point(24, 48)
+            };
+
+            commentTextBox = new TextBox
+            {
+                Multiline = true,
+                Font = new Font("Inter", 11F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252),
+                ScrollBars = ScrollBars.Vertical,
+                Height = 100,
+                Location = new Point(24, 70),
+                Width = panel.Width - 48,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+
+            panel.Controls.Add(label);
+            panel.Controls.Add(hint);
+            panel.Controls.Add(commentTextBox);
+
+            panel.Resize += (_, _) =>
+            {
+                label.MaximumSize = new Size(panel.Width - 48, 0);
+                commentTextBox.Width = panel.Width - 48;
+            };
+
+            return panel;
+        }
+
         private bool IsQuestionAnswered(Control control)
         {
             if (control is TextBox textBox)
@@ -519,6 +579,46 @@ namespace EvaluaTeach
             if (result != DialogResult.Yes)
                 return;
 
+            string commentText = commentTextBox?.Text.Trim() ?? string.Empty;
+            CommentLevel detectedLevel = CommentLevel.Normal;
+
+            if (!string.IsNullOrWhiteSpace(commentText))
+            {
+                detectedLevel = CommentClassifier.Classify(commentText);
+
+                if (detectedLevel != CommentLevel.Normal && !commentPendingEdit)
+                {
+                    string levelName = detectedLevel.ToString();
+                    string desc = CommentClassifier.GetLevelDescription(detectedLevel);
+                    string levelColor = detectedLevel switch
+                    {
+                        CommentLevel.Mild     => "Yellow",
+                        CommentLevel.Moderate => "Orange",
+                        CommentLevel.Severe   => "Red",
+                        _                     => "Green"
+                    };
+
+                    var warningResult = MessageBox.Show(
+                        $"Your comment has been flagged:\n\n" +
+                        $"Level: {levelName.ToUpper()}\n{desc}\n\n" +
+                        "Your comment will be held for admin review before it becomes visible.\n\n" +
+                        "Click YES to edit your comment, or NO to submit it as-is (pending admin approval).",
+                        "Comment Flagged",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning);
+
+                    if (warningResult == DialogResult.Yes)
+                    {
+                        commentPendingEdit = true;
+                        commentTextBox.Focus();
+                        commentTextBox.SelectAll();
+                        return;
+                    }
+                }
+            }
+
+            commentPendingEdit = false;
+
             var response = new FormResponse
             {
                 FormId = form.Id,
@@ -531,6 +631,33 @@ namespace EvaluaTeach
             };
 
             FormDataStore.AddResponse(response);
+
+            if (!string.IsNullOrWhiteSpace(commentText))
+            {
+                detectedLevel = CommentClassifier.Classify(commentText);
+                var commentStatus = detectedLevel == CommentLevel.Normal
+                    ? CommentStatus.Approved
+                    : CommentStatus.Pending;
+
+                string studentId = string.IsNullOrWhiteSpace(SessionStore.UserId) ? ProfileStore.StudentId : SessionStore.UserId;
+                string studentName = string.IsNullOrWhiteSpace(SessionStore.UserName) ? ProfileStore.Name : SessionStore.UserName;
+                string studentEmail = ProfileStore.Email ?? string.Empty;
+
+                var formComment = new FormComment
+                {
+                    SubmissionId = response.Id,
+                    StudentDbId = SessionStore.UserIdNumeric,
+                    StudentId = studentId,
+                    StudentName = studentName,
+                    StudentEmail = studentEmail,
+                    FormTitle = form.Title,
+                    CommentText = commentText,
+                    SystemLevel = detectedLevel,
+                    Status = commentStatus,
+                    SubmittedAt = DateTime.Now
+                };
+                FormDataStore.AddComment(formComment);
+            }
 
             MessageBox.Show("Your evaluation has been submitted successfully!",
                 "Thank You", MessageBoxButtons.OK, MessageBoxIcon.Information);

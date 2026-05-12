@@ -50,4 +50,37 @@ namespace EvaluaTeach
         public DateTime SubmittedAt { get; set; } = DateTime.Now;
         public Dictionary<int, string> Answers { get; set; } = new();
     }
+
+    public enum CommentLevel
+    {
+        Normal,
+        Mild,
+        Moderate,
+        Severe
+    }
+
+    public enum CommentStatus
+    {
+        Pending,
+        Approved,
+        Rejected
+    }
+
+    public class FormComment
+    {
+        public int Id { get; set; }
+        public int SubmissionId { get; set; }
+        public int? StudentDbId { get; set; }
+        public string StudentId { get; set; } = string.Empty;
+        public string StudentName { get; set; } = string.Empty;
+        public string StudentEmail { get; set; } = string.Empty;
+        public string FormTitle { get; set; } = string.Empty;
+        public string CommentText { get; set; } = string.Empty;
+        public CommentLevel SystemLevel { get; set; } = CommentLevel.Normal;
+        public CommentLevel? AdminLevel { get; set; }
+        public CommentStatus Status { get; set; } = CommentStatus.Pending;
+        public DateTime SubmittedAt { get; set; } = DateTime.Now;
+        public DateTime? ReviewedAt { get; set; }
+        public string ReviewedBy { get; set; } = string.Empty;
+    }
 }
