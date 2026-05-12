@@ -78,6 +78,19 @@ namespace EvaluaTeach
         public decimal AverageScore { get; set; }
         public int ResponseCount { get; set; }
         public string ReportData { get; set; } = string.Empty;
+        public string? CommentText { get; set; }
+        public CommentLevel? CommentLevel { get; set; }
+    }
+
+    public class TeacherAssignment
+    {
+        public int AssignmentID { get; set; }
+        public int TeacherID { get; set; }
+        public string Section { get; set; } = string.Empty;
+        public string Course { get; set; } = string.Empty;
+        public string YearLevel { get; set; } = string.Empty;
+        public List<string> Subjects { get; set; } = new();
+        public string SubjectsDisplay => Subjects.Count > 0 ? string.Join(", ", Subjects) : "N/A";
     }
 
     public class FormComment
@@ -88,6 +101,7 @@ namespace EvaluaTeach
         public string StudentId { get; set; } = string.Empty;
         public string StudentName { get; set; } = string.Empty;
         public string StudentEmail { get; set; } = string.Empty;
+        public int TeacherId { get; set; }
         public string FormTitle { get; set; } = string.Empty;
         public string CommentText { get; set; } = string.Empty;
         public CommentLevel SystemLevel { get; set; } = CommentLevel.Normal;

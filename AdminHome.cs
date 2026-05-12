@@ -277,10 +277,10 @@ namespace EvaluaTeach
 
         private void ConfigureStatsCards()
         {
-            int cardWidth = 200;
+            int cardWidth = 180;
             int cardHeight = 118;
             int startX = 32;
-            int spacing = 24;
+            int spacing = 16;
 
             statsLabel1.BackColor = Color.White;
             statsLabel1.Size = new Size(cardWidth, cardHeight);
@@ -1030,7 +1030,15 @@ namespace EvaluaTeach
                 Cursor = alreadySent ? Cursors.Default : Cursors.Hand,
                 Enabled = !alreadySent
             };
-            sendBtn.Click += (_, _) => SendReportToTeacher(form, response, BuildResponseReport(form, response));
+            sendBtn.Click += (_, _) =>
+            {
+                SendReportToTeacher(form, response, BuildResponseReport(form, response));
+                // Immediately update button to show "Sent" state
+                sendBtn.Text = "Sent";
+                sendBtn.BackColor = Color.FromArgb(148, 163, 184);
+                sendBtn.Enabled = false;
+                sendBtn.Cursor = Cursors.Default;
+            };
 
             row.Controls.Add(accentBar);
             row.Controls.Add(avatar);
@@ -1228,8 +1236,8 @@ namespace EvaluaTeach
 
                 var answerPanel = new Panel
                 {
-                    Size = new Size(560, 40),
-                    Location = new Point(48, 50),
+                    Size = new Size(560, 36),
+                    Location = new Point(48, 56),
                     BackColor = Color.FromArgb(250, 251, 252)
                 };
 
@@ -1239,8 +1247,8 @@ namespace EvaluaTeach
                     Font = new Font("Inter", 10F),
                     ForeColor = Color.FromArgb(15, 23, 42),
                     AutoSize = false,
-                    Size = new Size(540, 36),
-                    Location = new Point(10, 8)
+                    Size = new Size(540, 32),
+                    Location = new Point(10, 6)
                 };
 
                 answerPanel.Controls.Add(answerLabel);
@@ -1310,7 +1318,7 @@ namespace EvaluaTeach
                     BackColor = levelBg,
                     AutoSize = true,
                     Padding = new Padding(6, 2, 6, 2),
-                    Location = new Point(152, 10)
+                    Location = new Point(400, 10)
                 };
 
                 var statusBadge = new Label
@@ -1321,7 +1329,7 @@ namespace EvaluaTeach
                     BackColor = statusBg,
                     AutoSize = true,
                     Padding = new Padding(6, 2, 6, 2),
-                    Location = new Point(220, 10)
+                    Location = new Point(480, 10)
                 };
 
                 var commentTextBox = new TextBox
@@ -1958,7 +1966,7 @@ namespace EvaluaTeach
                 Font = new Font("Inter SemiBold", 14F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(15, 23, 42),
                 AutoSize = true,
-                Location = new Point(86, 20)
+                Location = new Point(86, 16)
             };
 
             // Email
@@ -1993,35 +2001,53 @@ namespace EvaluaTeach
                 Location = new Point(200, 74)
             };
 
-            // Edit button
-            var editBtn = new Button
+            // Manage Subjects button
+            var manageBtn = new Button
             {
-                Text = "✏️ Edit",
+                Text = "📋 Subjects",
                 BackColor = Color.FromArgb(224, 242, 254),
                 ForeColor = Color.FromArgb(3, 105, 161),
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                Size = new Size(75, 32),
-                Location = new Point(card.Width - 200, 70),
+                Size = new Size(100, 32),
+                Location = new Point(card.Width - 225, 70),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Cursor = Cursors.Hand
+            };
+            manageBtn.Click += (_, _) => ShowTeacherSubjectsDialog(teacher);
+            manageBtn.MouseEnter += (_, _) => manageBtn.BackColor = Color.FromArgb(186, 230, 253);
+            manageBtn.MouseLeave += (_, _) => manageBtn.BackColor = Color.FromArgb(224, 242, 254);
+
+            // Edit button
+            var editBtn = new Button
+            {
+                Text = "✏️ Edit",
+                BackColor = Color.FromArgb(243, 244, 246),
+                ForeColor = Color.FromArgb(55, 65, 81),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                Size = new Size(60, 32),
+                Location = new Point(card.Width - 115, 70),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Cursor = Cursors.Hand
             };
             editBtn.Click += (_, _) => EditTeacher(teacher);
-            editBtn.MouseEnter += (_, _) => editBtn.BackColor = Color.FromArgb(186, 230, 253);
-            editBtn.MouseLeave += (_, _) => editBtn.BackColor = Color.FromArgb(224, 242, 254);
+            editBtn.MouseEnter += (_, _) => editBtn.BackColor = Color.FromArgb(229, 231, 235);
+            editBtn.MouseLeave += (_, _) => editBtn.BackColor = Color.FromArgb(243, 244, 246);
 
             // Delete button
             var deleteBtn = new Button
             {
-                Text = "🗑 Delete",
+                Text = "🗑️",
                 BackColor = Color.FromArgb(254, 226, 226),
                 ForeColor = Color.FromArgb(185, 28, 28),
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                Size = new Size(100, 32),
-                Location = new Point(card.Width - 115, 70),
+                Size = new Size(32, 32),
+                Location = new Point(card.Width - 48, 70),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Cursor = Cursors.Hand
             };
@@ -2029,12 +2055,26 @@ namespace EvaluaTeach
             deleteBtn.MouseEnter += (_, _) => deleteBtn.BackColor = Color.FromArgb(252, 210, 210);
             deleteBtn.MouseLeave += (_, _) => deleteBtn.BackColor = Color.FromArgb(254, 226, 226);
 
+            // Subjects/Assignments preview
+            string assignmentsText = teacher.Assignments.Count > 0
+                ? $"📚 {teacher.Assignments.Count} subject group(s)"
+                : "⚠️ No subjects - students won't see this teacher";
+            var assignmentsLabel = new Label
+            {
+                Text = assignmentsText,
+                Font = new Font("Inter", 9F),
+                ForeColor = teacher.Assignments.Count > 0 ? Color.FromArgb(71, 85, 105) : Color.FromArgb(239, 68, 68),
+                AutoSize = true,
+                Location = new Point(200, 74)
+            };
+
             card.Controls.Add(accentBar);
             card.Controls.Add(avatar);
             card.Controls.Add(nameLabel);
             card.Controls.Add(emailLabel);
             card.Controls.Add(deptBadge);
-            card.Controls.Add(subjectsLabel);
+            card.Controls.Add(assignmentsLabel);
+            card.Controls.Add(manageBtn);
             card.Controls.Add(editBtn);
             card.Controls.Add(deleteBtn);
 
@@ -2097,7 +2137,7 @@ namespace EvaluaTeach
             var dialog = new Form
             {
                 Text = "Edit Teacher",
-                Size = new Size(500, 480),
+                Size = new Size(520, 360),
                 StartPosition = FormStartPosition.CenterParent,
                 BackColor = Color.White,
                 FormBorderStyle = FormBorderStyle.FixedDialog,
@@ -2209,97 +2249,19 @@ namespace EvaluaTeach
             cmbDepartment.Items.AddRange(new[] { "BSIT", "BSCS", "BSCE", "BSEE", "BSME", "BSN", "BSA", "BSBA", "Education", "Science", "Engineering", "Other" });
             cmbDepartment.SelectedItem = teacher.Department ?? "BSIT";
             dialog.Controls.Add(cmbDepartment);
-            y += 44;
+            y += 56;
 
-            // Row 4: Section | Course | Year Level
-            var sectionLabel = new Label
+            // Note about subjects
+            var noteLabel = new Label
             {
-                Text = "Section",
-                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
+                Text = "💡 Manage sections and subjects via the '📋 Subjects' button on the teacher card",
+                Font = new Font("Inter", 9F, FontStyle.Italic),
+                ForeColor = Color.FromArgb(100, 116, 139),
                 AutoSize = true,
                 Location = new Point(20, y)
             };
-            dialog.Controls.Add(sectionLabel);
-
-            var courseLabel2 = new Label
-            {
-                Text = "Course *",
-                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
-                AutoSize = true,
-                Location = new Point(160, y)
-            };
-            dialog.Controls.Add(courseLabel2);
-
-            var yearLevelLabel = new Label
-            {
-                Text = "Year Level *",
-                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
-                AutoSize = true,
-                Location = new Point(320, y)
-            };
-            dialog.Controls.Add(yearLevelLabel);
-            y += 20;
-
-            var txtSection = new TextBox
-            {
-                Text = teacher.Section,
-                Location = new Point(20, y),
-                Size = new Size(120, 26),
-                Font = new Font("Inter", 10F),
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.FromArgb(248, 250, 252)
-            };
-            dialog.Controls.Add(txtSection);
-
-            var txtCourse = new TextBox
-            {
-                Text = teacher.Course,
-                Location = new Point(160, y),
-                Size = new Size(140, 26),
-                Font = new Font("Inter", 10F),
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.FromArgb(248, 250, 252)
-            };
-            dialog.Controls.Add(txtCourse);
-
-            var txtYearLevel = new TextBox
-            {
-                Text = teacher.YearLevel,
-                Location = new Point(320, y),
-                Size = new Size(140, 26),
-                Font = new Font("Inter", 10F),
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.FromArgb(248, 250, 252)
-            };
-            dialog.Controls.Add(txtYearLevel);
+            dialog.Controls.Add(noteLabel);
             y += 44;
-
-            // Row 5: Subjects
-            var subjectsLabel = new Label
-            {
-                Text = "Subjects (comma-separated) *",
-                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
-                AutoSize = true,
-                Location = new Point(20, y)
-            };
-            dialog.Controls.Add(subjectsLabel);
-            y += 20;
-
-            var txtSubjects = new TextBox
-            {
-                Text = string.Join(", ", teacher.Subjects),
-                Location = new Point(20, y),
-                Size = new Size(440, 26),
-                Font = new Font("Inter", 10F),
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.FromArgb(248, 250, 252)
-            };
-            dialog.Controls.Add(txtSubjects);
-            y += 48;
 
             // Buttons
             var cancelBtn = new Button
@@ -2328,16 +2290,12 @@ namespace EvaluaTeach
             };
             saveBtn.Click += (_, _) =>
             {
-                if (ValidateTeacherEditInput(txtFirstName.Text, txtLastName.Text, txtEmail.Text, txtCourse.Text, txtYearLevel.Text, txtSubjects.Text))
+                if (ValidateTeacherEditInput(txtFirstName.Text, txtLastName.Text, txtEmail.Text))
                 {
                     teacher.FirstName = txtFirstName.Text.Trim();
                     teacher.LastName = txtLastName.Text.Trim();
                     teacher.Email = txtEmail.Text.Trim();
                     teacher.Department = cmbDepartment.SelectedItem?.ToString() ?? "";
-                    teacher.Section = txtSection.Text.Trim();
-                    teacher.Course = txtCourse.Text.Trim();
-                    teacher.YearLevel = txtYearLevel.Text.Trim();
-                    teacher.Subjects = txtSubjects.Text.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
 
                     try
                     {
@@ -2359,7 +2317,597 @@ namespace EvaluaTeach
             dialog.ShowDialog(this);
         }
 
-        private bool ValidateTeacherEditInput(string firstName, string lastName, string email, string course, string yearLevel, string subjects)
+        private void ShowTeacherSubjectsDialog(Teacher teacher)
+        {
+            var dialog = new Form
+            {
+                Text = $"Manage Subjects - {teacher.FullName}",
+                Size = new Size(550, 600),
+                StartPosition = FormStartPosition.CenterParent,
+                BackColor = Color.White,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            int y = 16;
+
+            // Header
+            var titleLabel = new Label
+            {
+                Text = $"Subjects for {teacher.FullName}",
+                Font = new Font("Inter", 14F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            dialog.Controls.Add(titleLabel);
+            y += 32;
+
+            var subtitleLabel = new Label
+            {
+                Text = "Add sections where this teacher teaches. Students will only see teachers matching their section/course/year.",
+                Font = new Font("Inter", 9F),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                AutoSize = true,
+                MaximumSize = new Size(500, 0),
+                Location = new Point(20, y)
+            };
+            dialog.Controls.Add(subtitleLabel);
+            y += 50;
+
+            // Subjects container (scrollable)
+            var subjectsPanel = new Panel
+            {
+                Location = new Point(20, y),
+                Size = new Size(500, 380),
+                BackColor = Color.FromArgb(248, 250, 252),
+                BorderStyle = BorderStyle.FixedSingle,
+                AutoScroll = true
+            };
+
+            // Load existing assignments
+            var assignments = TeacherStore.GetTeacherAssignments(teacher.TeacherID);
+            int subjectY = 10;
+
+            void RefreshSubjectsList()
+            {
+                // Clear existing controls
+                for (int i = subjectsPanel.Controls.Count - 1; i >= 0; i--)
+                {
+                    subjectsPanel.Controls.RemoveAt(i);
+                }
+                subjectY = 10;
+
+                // Refresh from database
+                assignments = TeacherStore.GetTeacherAssignments(teacher.TeacherID);
+
+                if (assignments.Count == 0)
+                {
+                    var emptyLabel = new Label
+                    {
+                        Text = "No subjects yet. Click 'Add Subject Group' below.",
+                        Font = new Font("Inter", 10F, FontStyle.Italic),
+                        ForeColor = Color.FromArgb(148, 163, 184),
+                        AutoSize = true,
+                        Location = new Point(20, subjectY)
+                    };
+                    subjectsPanel.Controls.Add(emptyLabel);
+                    subjectY += 40;
+                }
+                else
+                {
+                    foreach (var assignment in assignments)
+                    {
+                        CreateSubjectCard(subjectsPanel, assignment, ref subjectY, RefreshSubjectsList);
+                    }
+                }
+
+                subjectY += 10;
+            }
+
+            void CreateSubjectCard(Panel parent, TeacherAssignment assignment, ref int cardY, Action onDelete)
+            {
+                var card = new Panel
+                {
+                    Location = new Point(10, cardY),
+                    Size = new Size(460, 110),
+                    BackColor = Color.White,
+                    BorderStyle = BorderStyle.FixedSingle
+                };
+
+                // Section info
+                var sectionInfo = new Label
+                {
+                    Text = $"📍 Section: {assignment.Section ?? "All"} | Course: {assignment.Course ?? "All"} | Year: {assignment.YearLevel ?? "All"}",
+                    Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(15, 23, 42),
+                    AutoSize = true,
+                    Location = new Point(12, 10)
+                };
+                card.Controls.Add(sectionInfo);
+
+                // Subjects
+                var subjectsLabel = new Label
+                {
+                    Text = $"📚 Subjects: {assignment.SubjectsDisplay}",
+                    Font = new Font("Inter", 9F),
+                    ForeColor = Color.FromArgb(71, 85, 105),
+                    AutoSize = true,
+                    MaximumSize = new Size(360, 0),
+                    Location = new Point(12, 36)
+                };
+                card.Controls.Add(subjectsLabel);
+
+                // Edit button
+                var editBtn = new Button
+                {
+                    Text = "✏️",
+                    BackColor = Color.FromArgb(224, 242, 254),
+                    ForeColor = Color.FromArgb(3, 105, 161),
+                    FlatStyle = FlatStyle.Flat,
+                    FlatAppearance = { BorderSize = 0 },
+                    Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                    Size = new Size(32, 28),
+                    Location = new Point(380, 10),
+                    Cursor = Cursors.Hand
+                };
+                editBtn.Click += (_, _) => ShowEditSubjectDialog(teacher, assignment, onDelete);
+                card.Controls.Add(editBtn);
+
+                // Delete button
+                var deleteBtn = new Button
+                {
+                    Text = "🗑️",
+                    BackColor = Color.FromArgb(254, 226, 226),
+                    ForeColor = Color.FromArgb(185, 28, 28),
+                    FlatStyle = FlatStyle.Flat,
+                    FlatAppearance = { BorderSize = 0 },
+                    Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                    Size = new Size(32, 28),
+                    Location = new Point(420, 10),
+                    Cursor = Cursors.Hand
+                };
+                deleteBtn.Click += (_, _) =>
+                {
+                    var result = MessageBox.Show("Delete this subject group?", "Confirm", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    if (result == DialogResult.Yes)
+                    {
+                        TeacherStore.DeleteTeacherAssignment(assignment.AssignmentID);
+                        onDelete?.Invoke();
+                    }
+                };
+                card.Controls.Add(deleteBtn);
+
+                parent.Controls.Add(card);
+                cardY += 120;
+            }
+
+            RefreshSubjectsList();
+            dialog.Controls.Add(subjectsPanel);
+
+            // Add New Subject Group button
+            var addSubjectBtn = new Button
+            {
+                Text = "+ Add Subject Group",
+                BackColor = Color.FromArgb(38, 166, 91),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(160, 36),
+                Location = new Point(20, y + 390)
+            };
+            addSubjectBtn.Click += (_, _) => ShowAddSubjectDialog(teacher, RefreshSubjectsList);
+            dialog.Controls.Add(addSubjectBtn);
+
+            // Close button
+            var closeBtn = new Button
+            {
+                Text = "Close",
+                BackColor = Color.FromArgb(243, 244, 246),
+                ForeColor = Color.FromArgb(55, 65, 81),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(90, 36),
+                Location = new Point(430, y + 390)
+            };
+            closeBtn.Click += (_, _) => dialog.Close();
+            dialog.Controls.Add(closeBtn);
+
+            dialog.ShowDialog(this);
+            LoadTeachersView(); // Refresh to show updated count
+        }
+
+        private void ShowAddSubjectDialog(Teacher teacher, Action onSave)
+        {
+            var dialog = new Form
+            {
+                Text = "Add New Subject Group",
+                Size = new Size(480, 400),
+                StartPosition = FormStartPosition.CenterParent,
+                BackColor = Color.White,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                AutoScroll = true
+            };
+
+            var scrollPanel = new Panel
+            {
+                Location = new Point(0, 0),
+                Size = new Size(464, 360),
+                BackColor = Color.White,
+                AutoScroll = true
+            };
+            dialog.Controls.Add(scrollPanel);
+
+            int y = 20;
+
+            // Section
+            var sectionLabel = new Label
+            {
+                Text = "Section (e.g., A, B, C or leave empty for all)",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            scrollPanel.Controls.Add(sectionLabel);
+            y += 24;
+
+            var sectionInput = new TextBox
+            {
+                Location = new Point(20, y),
+                Size = new Size(200, 26),
+                Font = new Font("Inter", 10F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252)
+            };
+            scrollPanel.Controls.Add(sectionInput);
+            y += 44;
+
+            // Course (using Department as default)
+            var courseLabel = new Label
+            {
+                Text = "Course *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            scrollPanel.Controls.Add(courseLabel);
+            y += 24;
+
+            var courseCombo = new ComboBox
+            {
+                Location = new Point(20, y),
+                Size = new Size(200, 26),
+                Font = new Font("Inter", 10F),
+                DropDownStyle = ComboBoxStyle.DropDown,
+                Text = teacher.Department ?? "BSIT"
+            };
+            courseCombo.Items.AddRange(new[] { "BSIT", "BSCS", "BSCE", "BSEE", "BSME", "BSN", "BSA", "BSBA", "Education", "Science", "Engineering", "Other" });
+            scrollPanel.Controls.Add(courseCombo);
+            y += 44;
+
+            // Year Level - Limited to 1-4
+            var yearLabel = new Label
+            {
+                Text = "Year Level (1-4 or leave empty for all)",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            scrollPanel.Controls.Add(yearLabel);
+            y += 24;
+
+            var yearCombo = new ComboBox
+            {
+                Location = new Point(20, y),
+                Size = new Size(200, 26),
+                Font = new Font("Inter", 10F),
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            yearCombo.Items.Add(""); // Empty for "all"
+            yearCombo.Items.Add("1");
+            yearCombo.Items.Add("2");
+            yearCombo.Items.Add("3");
+            yearCombo.Items.Add("4");
+            yearCombo.SelectedIndex = 0;
+            scrollPanel.Controls.Add(yearCombo);
+            y += 44;
+
+            // Subjects
+            var subjectsLabel = new Label
+            {
+                Text = "Subjects (comma-separated) *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            scrollPanel.Controls.Add(subjectsLabel);
+            y += 24;
+
+            var subjectsInput = new TextBox
+            {
+                Location = new Point(20, y),
+                Size = new Size(420, 26),
+                Font = new Font("Inter", 10F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252),
+                PlaceholderText = "e.g. Math, Physics, Programming"
+            };
+            scrollPanel.Controls.Add(subjectsInput);
+            y += 56;
+
+            // Set scroll panel height to fit content
+            scrollPanel.Height = Math.Min(360, y + 80);
+
+            // Buttons - positioned at bottom of dialog
+            var cancelBtn = new Button
+            {
+                Text = "Cancel",
+                BackColor = Color.FromArgb(243, 244, 246),
+                ForeColor = Color.FromArgb(55, 65, 81),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(90, 36),
+                Location = new Point(260, scrollPanel.Bottom + 10)
+            };
+            cancelBtn.Click += (_, _) => dialog.Close();
+            dialog.Controls.Add(cancelBtn);
+
+            var saveBtn = new Button
+            {
+                Text = "Add",
+                BackColor = Color.FromArgb(38, 166, 91),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(90, 36),
+                Location = new Point(360, scrollPanel.Bottom + 10)
+            };
+            saveBtn.Click += (_, _) =>
+            {
+                string course = courseCombo.Text.Trim();
+                string subjectsText = subjectsInput.Text.Trim();
+
+                if (string.IsNullOrWhiteSpace(course))
+                {
+                    MessageBox.Show("Course is required.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                if (string.IsNullOrWhiteSpace(subjectsText))
+                {
+                    MessageBox.Show("Please enter at least one subject.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var assignment = new TeacherAssignment
+                {
+                    Section = sectionInput.Text.Trim(),
+                    Course = course,
+                    YearLevel = yearCombo.SelectedItem?.ToString() ?? "",
+                    Subjects = subjectsText.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList()
+                };
+
+                TeacherStore.AddTeacherAssignment(teacher.TeacherID, assignment);
+                onSave?.Invoke();
+                dialog.Close();
+            };
+            dialog.Controls.Add(saveBtn);
+
+            dialog.ShowDialog(this);
+        }
+
+        private void ShowEditSubjectDialog(Teacher teacher, TeacherAssignment assignment, Action onSave)
+        {
+            var dialog = new Form
+            {
+                Text = "Edit Subject Group",
+                Size = new Size(480, 400),
+                StartPosition = FormStartPosition.CenterParent,
+                BackColor = Color.White,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                AutoScroll = true
+            };
+
+            var scrollPanel = new Panel
+            {
+                Location = new Point(0, 0),
+                Size = new Size(464, 360),
+                BackColor = Color.White,
+                AutoScroll = true
+            };
+            dialog.Controls.Add(scrollPanel);
+
+            int y = 20;
+
+            // Section
+            var sectionLabel = new Label
+            {
+                Text = "Section (e.g., A, B, C or leave empty for all)",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            scrollPanel.Controls.Add(sectionLabel);
+            y += 24;
+
+            var sectionInput = new TextBox
+            {
+                Text = assignment.Section,
+                Location = new Point(20, y),
+                Size = new Size(200, 26),
+                Font = new Font("Inter", 10F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252)
+            };
+            scrollPanel.Controls.Add(sectionInput);
+            y += 44;
+
+            // Course
+            var courseLabel = new Label
+            {
+                Text = "Course *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            scrollPanel.Controls.Add(courseLabel);
+            y += 24;
+
+            var courseCombo = new ComboBox
+            {
+                Location = new Point(20, y),
+                Size = new Size(200, 26),
+                Font = new Font("Inter", 10F),
+                DropDownStyle = ComboBoxStyle.DropDown,
+                Text = assignment.Course ?? teacher.Department ?? "BSIT"
+            };
+            courseCombo.Items.AddRange(new[] { "BSIT", "BSCS", "BSCE", "BSEE", "BSME", "BSN", "BSA", "BSBA", "Education", "Science", "Engineering", "Other" });
+            scrollPanel.Controls.Add(courseCombo);
+            y += 44;
+
+            // Year Level - Limited to 1-4
+            var yearLabel = new Label
+            {
+                Text = "Year Level (1-4 or leave empty for all)",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            scrollPanel.Controls.Add(yearLabel);
+            y += 24;
+
+            var yearCombo = new ComboBox
+            {
+                Location = new Point(20, y),
+                Size = new Size(200, 26),
+                Font = new Font("Inter", 10F),
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            yearCombo.Items.Add(""); // Empty for "all"
+            yearCombo.Items.Add("1");
+            yearCombo.Items.Add("2");
+            yearCombo.Items.Add("3");
+            yearCombo.Items.Add("4");
+            // Select current value
+            int selectedIndex = 0;
+            for (int i = 0; i < yearCombo.Items.Count; i++)
+            {
+                if (yearCombo.Items[i]?.ToString() == assignment.YearLevel)
+                {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+            yearCombo.SelectedIndex = selectedIndex;
+            scrollPanel.Controls.Add(yearCombo);
+            y += 44;
+
+            // Subjects
+            var subjectsLabel = new Label
+            {
+                Text = "Subjects (comma-separated) *",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(20, y)
+            };
+            scrollPanel.Controls.Add(subjectsLabel);
+            y += 24;
+
+            var subjectsInput = new TextBox
+            {
+                Text = string.Join(", ", assignment.Subjects),
+                Location = new Point(20, y),
+                Size = new Size(420, 26),
+                Font = new Font("Inter", 10F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(248, 250, 252),
+                PlaceholderText = "e.g. Math, Physics, Programming"
+            };
+            scrollPanel.Controls.Add(subjectsInput);
+            y += 56;
+
+            // Set scroll panel height
+            scrollPanel.Height = Math.Min(360, y + 80);
+
+            // Buttons
+            var cancelBtn = new Button
+            {
+                Text = "Cancel",
+                BackColor = Color.FromArgb(243, 244, 246),
+                ForeColor = Color.FromArgb(55, 65, 81),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(90, 36),
+                Location = new Point(260, scrollPanel.Bottom + 10)
+            };
+            cancelBtn.Click += (_, _) => dialog.Close();
+            dialog.Controls.Add(cancelBtn);
+
+            var saveBtn = new Button
+            {
+                Text = "Save",
+                BackColor = Color.FromArgb(38, 166, 91),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                Size = new Size(90, 36),
+                Location = new Point(360, scrollPanel.Bottom + 10)
+            };
+            saveBtn.Click += (_, _) =>
+            {
+                string course = courseCombo.Text.Trim();
+                string subjectsText = subjectsInput.Text.Trim();
+
+                if (string.IsNullOrWhiteSpace(course))
+                {
+                    MessageBox.Show("Course is required.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                if (string.IsNullOrWhiteSpace(subjectsText))
+                {
+                    MessageBox.Show("Please enter at least one subject.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Delete old and create new (simple approach)
+                TeacherStore.DeleteTeacherAssignment(assignment.AssignmentID);
+                
+                var updatedAssignment = new TeacherAssignment
+                {
+                    Section = sectionInput.Text.Trim(),
+                    Course = course,
+                    YearLevel = yearCombo.SelectedItem?.ToString() ?? "",
+                    Subjects = subjectsText.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList()
+                };
+
+                TeacherStore.AddTeacherAssignment(teacher.TeacherID, updatedAssignment);
+                onSave?.Invoke();
+                dialog.Close();
+            };
+            dialog.Controls.Add(saveBtn);
+
+            dialog.ShowDialog(this);
+        }
+
+        private bool ValidateTeacherEditInput(string firstName, string lastName, string email)
         {
             if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
             {
@@ -2373,24 +2921,6 @@ namespace EvaluaTeach
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(course))
-            {
-                MessageBox.Show("Please enter the course.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(yearLevel))
-            {
-                MessageBox.Show("Please enter the year level.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(subjects))
-            {
-                MessageBox.Show("Please enter at least one subject.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
-
             return true;
         }
 
@@ -2400,7 +2930,7 @@ namespace EvaluaTeach
             var dialog = new Form
             {
                 Text = "Add New Teacher",
-                Size = new Size(500, 480),
+                Size = new Size(520, 380),
                 StartPosition = FormStartPosition.CenterParent,
                 BackColor = Color.White,
                 FormBorderStyle = FormBorderStyle.FixedDialog,
@@ -2518,83 +3048,17 @@ namespace EvaluaTeach
             dialog.Controls.Add(passwordInput);
             y += 44;
 
-            // Row 4: Subjects (full width)
-            var subjectsLabel = new Label
+            // Note: Assignments (Section/Year/Subjects) are added after teacher creation
+            var noteLabel = new Label
             {
-                Text = "Subjects (comma-separated) *",
-                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
+                Text = "💡 You can add sections and subjects after creating the teacher",
+                Font = new Font("Inter", 9F, FontStyle.Italic),
+                ForeColor = Color.FromArgb(100, 116, 139),
                 AutoSize = true,
                 Location = new Point(20, y)
             };
-            dialog.Controls.Add(subjectsLabel);
-            y += 20;
-
-            subjectsInput.PlaceholderText = "e.g. Math, Physics, Programming";
-            subjectsInput.Location = new Point(20, y);
-            subjectsInput.Size = new Size(440, 26);
-            subjectsInput.Font = new Font("Inter", 10F);
-            subjectsInput.BorderStyle = BorderStyle.FixedSingle;
-            subjectsInput.BackColor = Color.FromArgb(248, 250, 252);
-            dialog.Controls.Add(subjectsInput);
-            y += 48;
-
-            // Row 5: Section | Course | Year Level (for student matching)
-            var sectionLabel = new Label
-            {
-                Text = "Section (for student matching)",
-                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
-                AutoSize = true,
-                Location = new Point(20, y)
-            };
-            dialog.Controls.Add(sectionLabel);
-
-            var courseLabel2 = new Label
-            {
-                Text = "Course *",
-                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
-                AutoSize = true,
-                Location = new Point(160, y)
-            };
-            dialog.Controls.Add(courseLabel2);
-
-            var yearLevelLabel = new Label
-            {
-                Text = "Year Level *",
-                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
-                AutoSize = true,
-                Location = new Point(320, y)
-            };
-            dialog.Controls.Add(yearLevelLabel);
-            y += 20;
-
-            teacherSectionInput.PlaceholderText = "e.g. A";
-            teacherSectionInput.Location = new Point(20, y);
-            teacherSectionInput.Size = new Size(120, 26);
-            teacherSectionInput.Font = new Font("Inter", 10F);
-            teacherSectionInput.BorderStyle = BorderStyle.FixedSingle;
-            teacherSectionInput.BackColor = Color.FromArgb(248, 250, 252);
-            dialog.Controls.Add(teacherSectionInput);
-
-            teacherCourseInput.PlaceholderText = "e.g. BSIT";
-            teacherCourseInput.Location = new Point(160, y);
-            teacherCourseInput.Size = new Size(140, 26);
-            teacherCourseInput.Font = new Font("Inter", 10F);
-            teacherCourseInput.BorderStyle = BorderStyle.FixedSingle;
-            teacherCourseInput.BackColor = Color.FromArgb(248, 250, 252);
-            dialog.Controls.Add(teacherCourseInput);
-
-            teacherYearLevelInput.PlaceholderText = "e.g. 2";
-            teacherYearLevelInput.Location = new Point(320, y);
-            teacherYearLevelInput.Size = new Size(140, 26);
-            teacherYearLevelInput.Font = new Font("Inter", 10F);
-            teacherYearLevelInput.BorderStyle = BorderStyle.FixedSingle;
-            teacherYearLevelInput.BackColor = Color.FromArgb(248, 250, 252);
-            dialog.Controls.Add(teacherYearLevelInput);
-            y += 48;
+            dialog.Controls.Add(noteLabel);
+            y += 56;
 
             // Buttons
             var cancelBtn = new Button
@@ -2664,10 +3128,6 @@ namespace EvaluaTeach
             string email = emailInput.Text.Trim();
             string password = passwordInput.Text;
             string department = departmentSelector.SelectedItem?.ToString() ?? "";
-            string subjectsText = subjectsInput.Text.Trim();
-            string section = teacherSectionInput.Text.Trim();
-            string course = teacherCourseInput.Text.Trim();
-            string yearLevel = teacherYearLevelInput.Text.Trim();
 
             if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
             {
@@ -2687,58 +3147,31 @@ namespace EvaluaTeach
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(subjectsText))
-            {
-                MessageBox.Show("Please enter at least one subject.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(course))
-            {
-                MessageBox.Show("Please enter the course this teacher is assigned to.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(yearLevel))
-            {
-                MessageBox.Show("Please enter the year level this teacher is assigned to.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
-
             if (TeacherStore.EmailExists(email))
             {
                 MessageBox.Show("A teacher with this email already exists.", "Duplicate Email", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 
-            var subjects = subjectsText.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
-
             var teacher = new Teacher
             {
                 FirstName = firstName,
                 LastName = lastName,
                 Email = email,
-                Department = department,
-                Section = section,
-                Course = course,
-                YearLevel = yearLevel,
-                Subjects = subjects
+                Department = department
             };
 
             try
             {
                 TeacherStore.AddTeacher(teacher, password);
-                MessageBox.Show($"Teacher '{teacher.FullName}' added successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                MessageBox.Show($"Teacher '{teacher.FullName}' added successfully!\n\nYou can now add sections and subjects by clicking 'Manage Assignments' on the teacher card.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 // Clear inputs
                 firstNameInput.Clear();
                 lastNameInput.Clear();
                 emailInput.Clear();
                 passwordInput.Clear();
-                subjectsInput.Clear();
-                teacherSectionInput.Clear();
-                teacherCourseInput.Clear();
-                teacherYearLevelInput.Clear();
                 departmentSelector.SelectedIndex = 0;
 
                 return true;

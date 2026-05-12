@@ -42,7 +42,99 @@ namespace EvaluaTeach
                 }
             }
 
+            // Load assignments for each teacher
+            foreach (var teacher in teachers)
+            {
+                teacher.Assignments = GetTeacherAssignments(teacher.TeacherID);
+            }
+
             return teachers;
+        }
+
+        public static List<TeacherAssignment> GetTeacherAssignments(int teacherId)
+        {
+            var assignments = new List<TeacherAssignment>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                SELECT AssignmentID, TeacherID, Section, Course, YearLevel, Subjects
+                FROM teacher_assignment
+                WHERE TeacherID = @teacherId
+                ORDER BY AssignmentID", conn);
+            cmd.Parameters.AddWithValue("@teacherId", teacherId);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var subjectsStr = reader.IsDBNull(reader.GetOrdinal("Subjects")) ? "" : reader.GetString("Subjects");
+                assignments.Add(new TeacherAssignment
+                {
+                    AssignmentID = reader.GetInt32("AssignmentID"),
+                    TeacherID = reader.GetInt32("TeacherID"),
+                    Section = reader.IsDBNull(reader.GetOrdinal("Section")) ? "" : reader.GetString("Section"),
+                    Course = reader.IsDBNull(reader.GetOrdinal("Course")) ? "" : reader.GetString("Course"),
+                    YearLevel = reader.IsDBNull(reader.GetOrdinal("YearLevel")) ? "" : reader.GetString("YearLevel"),
+                    Subjects = string.IsNullOrEmpty(subjectsStr) ? new List<string>() : subjectsStr.Split(',').Select(s => s.Trim()).ToList()
+                });
+            }
+
+            return assignments;
+        }
+
+        public static void SaveTeacherAssignments(int teacherId, List<TeacherAssignment> assignments)
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            // Delete existing assignments
+            var deleteCmd = new MySqlCommand("DELETE FROM teacher_assignment WHERE TeacherID = @teacherId", conn);
+            deleteCmd.Parameters.AddWithValue("@teacherId", teacherId);
+            deleteCmd.ExecuteNonQuery();
+
+            // Insert new assignments
+            foreach (var assignment in assignments)
+            {
+                var insertCmd = new MySqlCommand(@"
+                    INSERT INTO teacher_assignment (TeacherID, Section, Course, YearLevel, Subjects)
+                    VALUES (@teacherId, @section, @course, @yearLevel, @subjects)", conn);
+                insertCmd.Parameters.AddWithValue("@teacherId", teacherId);
+                insertCmd.Parameters.AddWithValue("@section", string.IsNullOrEmpty(assignment.Section) ? (object)DBNull.Value : assignment.Section);
+                insertCmd.Parameters.AddWithValue("@course", string.IsNullOrEmpty(assignment.Course) ? (object)DBNull.Value : assignment.Course);
+                insertCmd.Parameters.AddWithValue("@yearLevel", string.IsNullOrEmpty(assignment.YearLevel) ? (object)DBNull.Value : assignment.YearLevel);
+                insertCmd.Parameters.AddWithValue("@subjects", string.Join(", ", assignment.Subjects));
+                insertCmd.ExecuteNonQuery();
+            }
+        }
+
+        public static void AddTeacherAssignment(int teacherId, TeacherAssignment assignment)
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                INSERT INTO teacher_assignment (TeacherID, Section, Course, YearLevel, Subjects)
+                VALUES (@teacherId, @section, @course, @yearLevel, @subjects)", conn);
+            cmd.Parameters.AddWithValue("@teacherId", teacherId);
+            cmd.Parameters.AddWithValue("@section", string.IsNullOrEmpty(assignment.Section) ? (object)DBNull.Value : assignment.Section);
+            cmd.Parameters.AddWithValue("@course", string.IsNullOrEmpty(assignment.Course) ? (object)DBNull.Value : assignment.Course);
+            cmd.Parameters.AddWithValue("@yearLevel", string.IsNullOrEmpty(assignment.YearLevel) ? (object)DBNull.Value : assignment.YearLevel);
+            cmd.Parameters.AddWithValue("@subjects", string.Join(", ", assignment.Subjects));
+            cmd.ExecuteNonQuery();
+
+            TeachersUpdated?.Invoke();
+        }
+
+        public static void DeleteTeacherAssignment(int assignmentId)
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand("DELETE FROM teacher_assignment WHERE AssignmentID = @id", conn);
+            cmd.Parameters.AddWithValue("@id", assignmentId);
+            cmd.ExecuteNonQuery();
+
+            TeachersUpdated?.Invoke();
         }
 
         public static void AddTeacher(Teacher teacher, string password)
@@ -65,6 +157,7 @@ namespace EvaluaTeach
             cmd.Parameters.AddWithValue("@password", HashPassword(password));
 
             cmd.ExecuteNonQuery();
+            teacher.TeacherID = (int)cmd.LastInsertedId;
             TeachersUpdated?.Invoke();
         }
 
@@ -128,13 +221,16 @@ namespace EvaluaTeach
             using var conn = Database.GetConnection();
             conn.Open();
 
+            // Use teacher_assignment table for matching - teacher must have an assignment
+            // that matches ALL of: section, course, yearLevel
             var cmd = new MySqlCommand(@"
-                SELECT TeacherID, FirstName, LastName, Email, Department, Section, Course, YearLevel, Subjects, CreatedAt
-                FROM Teacher
-                WHERE (Section = @section OR Section IS NULL OR Section = '') 
-                  AND (Course = @course OR Course IS NULL OR Course = '')
-                  AND (YearLevel = @yearLevel OR YearLevel IS NULL OR YearLevel = '')
-                ORDER BY LastName, FirstName", conn);
+                SELECT DISTINCT t.TeacherID, t.FirstName, t.LastName, t.Email, t.Department, t.Section, t.Course, t.YearLevel, t.Subjects, t.CreatedAt
+                FROM Teacher t
+                INNER JOIN teacher_assignment ta ON ta.TeacherID = t.TeacherID
+                WHERE (ta.Section = @section OR ta.Section IS NULL OR ta.Section = '')
+                  AND (ta.Course = @course OR ta.Course IS NULL OR ta.Course = '')
+                  AND (ta.YearLevel = @yearLevel OR ta.YearLevel IS NULL OR ta.YearLevel = '')
+                ORDER BY t.LastName, t.FirstName", conn);
 
             cmd.Parameters.AddWithValue("@section", section);
             cmd.Parameters.AddWithValue("@course", course);
@@ -145,9 +241,10 @@ namespace EvaluaTeach
                 while (reader.Read())
                 {
                     var subjectsStr = reader.IsDBNull(reader.GetOrdinal("Subjects")) ? "" : reader.GetString("Subjects");
+                    var teacherId = reader.GetInt32("TeacherID");
                     teachers.Add(new Teacher
                     {
-                        TeacherID = reader.GetInt32("TeacherID"),
+                        TeacherID = teacherId,
                         FirstName = reader.GetString("FirstName"),
                         LastName = reader.GetString("LastName"),
                         Email = reader.IsDBNull(reader.GetOrdinal("Email")) ? "" : reader.GetString("Email"),
@@ -156,12 +253,57 @@ namespace EvaluaTeach
                         Course = reader.IsDBNull(reader.GetOrdinal("Course")) ? "" : reader.GetString("Course"),
                         YearLevel = reader.IsDBNull(reader.GetOrdinal("YearLevel")) ? "" : reader.GetInt32("YearLevel").ToString(),
                         Subjects = string.IsNullOrEmpty(subjectsStr) ? new List<string>() : subjectsStr.Split(',').Select(s => s.Trim()).ToList(),
-                        CreatedAt = reader.GetDateTime("CreatedAt")
+                        CreatedAt = reader.GetDateTime("CreatedAt"),
+                        // Load only matching assignments for this student
+                        Assignments = new List<TeacherAssignment>() // Will be populated separately if needed
                     });
                 }
             }
 
+            // Load matching assignments for each teacher
+            foreach (var teacher in teachers)
+            {
+                teacher.Assignments = GetMatchingAssignmentsForStudent(teacher.TeacherID, section, course, yearLevel);
+            }
+
             return teachers;
+        }
+
+        private static List<TeacherAssignment> GetMatchingAssignmentsForStudent(int teacherId, string section, string course, string yearLevel)
+        {
+            var assignments = new List<TeacherAssignment>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                SELECT AssignmentID, TeacherID, Section, Course, YearLevel, Subjects
+                FROM teacher_assignment
+                WHERE TeacherID = @teacherId
+                  AND (Section = @section OR Section IS NULL OR Section = '')
+                  AND (Course = @course OR Course IS NULL OR Course = '')
+                  AND (YearLevel = @yearLevel OR YearLevel IS NULL OR YearLevel = '')
+                ORDER BY AssignmentID", conn);
+            cmd.Parameters.AddWithValue("@teacherId", teacherId);
+            cmd.Parameters.AddWithValue("@section", section);
+            cmd.Parameters.AddWithValue("@course", course);
+            cmd.Parameters.AddWithValue("@yearLevel", yearLevel);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var subjectsStr = reader.IsDBNull(reader.GetOrdinal("Subjects")) ? "" : reader.GetString("Subjects");
+                assignments.Add(new TeacherAssignment
+                {
+                    AssignmentID = reader.GetInt32("AssignmentID"),
+                    TeacherID = reader.GetInt32("TeacherID"),
+                    Section = reader.IsDBNull(reader.GetOrdinal("Section")) ? "" : reader.GetString("Section"),
+                    Course = reader.IsDBNull(reader.GetOrdinal("Course")) ? "" : reader.GetString("Course"),
+                    YearLevel = reader.IsDBNull(reader.GetOrdinal("YearLevel")) ? "" : reader.GetString("YearLevel"),
+                    Subjects = string.IsNullOrEmpty(subjectsStr) ? new List<string>() : subjectsStr.Split(',').Select(s => s.Trim()).ToList()
+                });
+            }
+
+            return assignments;
         }
 
         public static bool HasReportBeenSent(int teacherId, int evaluationId, int submissionId)
@@ -210,9 +352,11 @@ namespace EvaluaTeach
             var cmd = new MySqlCommand(@"
                 SELECT r.ReportID, r.TeacherID, r.EvaluationID, r.SubmissionDate,
                        r.AverageScore, r.ResponseCount, r.ReportData,
-                       COALESCE(ef.Title, '') AS FormTitle
+                       COALESCE(ef.Title, '') AS FormTitle,
+                       c.Content AS CommentText, c.SystemLevel AS CommentLevel
                 FROM report r
                 LEFT JOIN EvaluationForm ef ON ef.EvaluationID = r.EvaluationID
+                LEFT JOIN comment c ON c.SubmissionID = r.ReportID AND c.Status = 'Approved'
                 WHERE r.TeacherID = @teacherId
                 ORDER BY r.SubmissionDate DESC", conn);
 
@@ -221,6 +365,7 @@ namespace EvaluaTeach
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
+                var commentLevelStr = reader.IsDBNull(reader.GetOrdinal("CommentLevel")) ? null : reader.GetString("CommentLevel");
                 reports.Add(new TeacherReport
                 {
                     ReportID = reader.GetInt32("ReportID"),
@@ -230,12 +375,23 @@ namespace EvaluaTeach
                     SubmissionDate = reader.GetDateTime("SubmissionDate"),
                     AverageScore = reader.IsDBNull(reader.GetOrdinal("AverageScore")) ? 0 : reader.GetDecimal("AverageScore"),
                     ResponseCount = reader.IsDBNull(reader.GetOrdinal("ResponseCount")) ? 0 : reader.GetInt32("ResponseCount"),
-                    ReportData = reader.IsDBNull(reader.GetOrdinal("ReportData")) ? "" : reader.GetString("ReportData")
+                    ReportData = reader.IsDBNull(reader.GetOrdinal("ReportData")) ? "" : reader.GetString("ReportData"),
+                    CommentText = reader.IsDBNull(reader.GetOrdinal("CommentText")) ? null : reader.GetString("CommentText"),
+                    CommentLevel = ParseCommentLevel(commentLevelStr)
                 });
             }
 
             return reports;
         }
+
+        private static CommentLevel? ParseCommentLevel(string? level) => level?.ToLower() switch
+        {
+            "mild" => EvaluaTeach.CommentLevel.Mild,
+            "moderate" => EvaluaTeach.CommentLevel.Moderate,
+            "severe" => EvaluaTeach.CommentLevel.Severe,
+            "normal" => EvaluaTeach.CommentLevel.Normal,
+            _ => null
+        };
 
         public static List<TeacherReport> GetAllReports()
         {

@@ -458,16 +458,61 @@ namespace EvaluaTeach
             return responses;
         }
 
-        public static bool HasStudentSubmitted(int formId, string studentId)
+        public static bool HasStudentSubmitted(int formId, string studentId, int teacherId = 0)
         {
             using var conn = Database.GetConnection();
             conn.Open();
 
-            var cmd = new MySqlCommand(@"
-                SELECT COUNT(*) FROM FormSubmission 
-                WHERE EvaluationID = @formId AND StudentIDNumber = @studentId", conn);
+            string sql;
+            MySqlCommand cmd;
+            
+            if (teacherId > 0)
+            {
+                // When checking for a specific teacher, match that teacher OR match submissions
+                // where the form submission was made before teacher tracking was implemented (NULL)
+                // BUT we need to also check if there's a specific submission for this teacher
+                sql = @"
+                    SELECT COUNT(*) FROM FormSubmission 
+                    WHERE EvaluationID = @formId AND StudentIDNumber = @studentId
+                    AND (TeacherID = @teacherId OR TeacherID IS NULL)
+                    AND NOT EXISTS (
+                        SELECT 1 FROM FormSubmission fs2 
+                        WHERE fs2.EvaluationID = @formId 
+                        AND fs2.StudentIDNumber = @studentId 
+                        AND fs2.TeacherID = @teacherId
+                    )";
+                
+                // Actually simpler: if there's a submission for this specific teacher, it's completed
+                // If there's a NULL submission and no specific teacher submission, consider it completed for backward compat
+                sql = @"
+                    SELECT COUNT(*) FROM FormSubmission 
+                    WHERE EvaluationID = @formId AND StudentIDNumber = @studentId
+                    AND (
+                        TeacherID = @teacherId 
+                        OR (TeacherID IS NULL AND NOT EXISTS (
+                            SELECT 1 FROM FormSubmission fs2 
+                            WHERE fs2.EvaluationID = @formId 
+                            AND fs2.StudentIDNumber = @studentId 
+                            AND fs2.TeacherID = @teacherId
+                        ))
+                    )";
+            }
+            else
+            {
+                // No teacher specified - check for any submission (generic forms)
+                sql = @"
+                    SELECT COUNT(*) FROM FormSubmission 
+                    WHERE EvaluationID = @formId AND StudentIDNumber = @studentId
+                    AND TeacherID IS NULL";
+            }
+
+            cmd = new MySqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("@formId", formId);
             cmd.Parameters.AddWithValue("@studentId", studentId);
+            if (teacherId > 0)
+            {
+                cmd.Parameters.AddWithValue("@teacherId", teacherId);
+            }
 
             var count = Convert.ToInt32(cmd.ExecuteScalar());
             return count > 0;
@@ -492,26 +537,92 @@ namespace EvaluaTeach
             using var conn = Database.GetConnection();
             conn.Open();
 
-            var cmd = new MySqlCommand(@"
-                INSERT INTO comment
-                    (StudentID, TeacherID, Content, DateSubmitted, Status,
-                     SubmissionID, FormTitle, SystemLevel)
-                VALUES
-                    (@studentId, @teacherId, @content, @dateSubmitted, @status,
-                     @submissionId, @formTitle, @systemLevel)", conn);
-            cmd.Parameters.AddWithValue("@studentId",
-                comment.StudentDbId.HasValue ? (object)comment.StudentDbId.Value : DBNull.Value);
-            cmd.Parameters.AddWithValue("@teacherId", DBNull.Value);
-            cmd.Parameters.AddWithValue("@content", comment.CommentText);
-            cmd.Parameters.AddWithValue("@dateSubmitted", comment.SubmittedAt);
-            cmd.Parameters.AddWithValue("@status", comment.Status.ToString());
-            cmd.Parameters.AddWithValue("@submissionId",
-                comment.SubmissionId > 0 ? (object)comment.SubmissionId : DBNull.Value);
-            cmd.Parameters.AddWithValue("@formTitle", (object?)comment.FormTitle ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@systemLevel", comment.SystemLevel.ToString());
-            cmd.ExecuteNonQuery();
+            // Check if comment already exists for this submission
+            // Note: A student can evaluate the same form for different teachers,
+            // so we check by SubmissionID (which is unique per student+form+teacher)
+            int? existingCommentId = null;
+            if (comment.SubmissionId > 0)
+            {
+                var checkCmd = new MySqlCommand(
+                    "SELECT CommentID FROM comment WHERE SubmissionID = @submissionId LIMIT 1", conn);
+                checkCmd.Parameters.AddWithValue("@submissionId", comment.SubmissionId);
+                var result = checkCmd.ExecuteScalar();
+                if (result != null && result != DBNull.Value)
+                {
+                    existingCommentId = Convert.ToInt32(result);
+                }
+            }
+            
+            // If no comment found by SubmissionID, also check by StudentID + FormTitle
+            // This handles cases where submission ID might not be set correctly
+            if (!existingCommentId.HasValue && comment.StudentDbId.HasValue && !string.IsNullOrEmpty(comment.FormTitle))
+            {
+                var checkByFormCmd = new MySqlCommand(@"
+                    SELECT c.CommentID 
+                    FROM comment c
+                    INNER JOIN FormSubmission fs ON fs.SubmissionID = c.SubmissionID
+                    WHERE c.StudentID = @studentId 
+                    AND c.FormTitle = @formTitle
+                    AND fs.TeacherID = @teacherId
+                    LIMIT 1", conn);
+                checkByFormCmd.Parameters.AddWithValue("@studentId", comment.StudentDbId.Value);
+                checkByFormCmd.Parameters.AddWithValue("@formTitle", comment.FormTitle);
+                checkByFormCmd.Parameters.AddWithValue("@teacherId", 
+                    comment.TeacherId > 0 ? comment.TeacherId : (object)DBNull.Value);
+                var result2 = checkByFormCmd.ExecuteScalar();
+                if (result2 != null && result2 != DBNull.Value)
+                {
+                    existingCommentId = Convert.ToInt32(result2);
+                }
+            }
 
-            comment.Id = (int)cmd.LastInsertedId;
+            if (existingCommentId.HasValue)
+            {
+                // Update existing comment
+                var updateCmd = new MySqlCommand(@"
+                    UPDATE comment
+                    SET Content = @content,
+                        DateSubmitted = @dateSubmitted,
+                        Status = @status,
+                        SystemLevel = @systemLevel,
+                        FormTitle = @formTitle
+                    WHERE CommentID = @commentId", conn);
+                updateCmd.Parameters.AddWithValue("@commentId", existingCommentId.Value);
+                updateCmd.Parameters.AddWithValue("@content", comment.CommentText);
+                updateCmd.Parameters.AddWithValue("@dateSubmitted", comment.SubmittedAt);
+                updateCmd.Parameters.AddWithValue("@status", comment.Status.ToString());
+                updateCmd.Parameters.AddWithValue("@systemLevel", comment.SystemLevel.ToString());
+                updateCmd.Parameters.AddWithValue("@formTitle", (object?)comment.FormTitle ?? DBNull.Value);
+                updateCmd.ExecuteNonQuery();
+
+                comment.Id = existingCommentId.Value;
+            }
+            else
+            {
+                // Insert new comment
+                var cmd = new MySqlCommand(@"
+                    INSERT INTO comment
+                        (StudentID, TeacherID, Content, DateSubmitted, Status,
+                         SubmissionID, FormTitle, SystemLevel)
+                    VALUES
+                        (@studentId, @teacherId, @content, @dateSubmitted, @status,
+                         @submissionId, @formTitle, @systemLevel)", conn);
+                cmd.Parameters.AddWithValue("@studentId",
+                    comment.StudentDbId.HasValue ? (object)comment.StudentDbId.Value : DBNull.Value);
+                cmd.Parameters.AddWithValue("@teacherId", 
+                    comment.TeacherId > 0 ? (object)comment.TeacherId : DBNull.Value);
+                cmd.Parameters.AddWithValue("@content", comment.CommentText);
+                cmd.Parameters.AddWithValue("@dateSubmitted", comment.SubmittedAt);
+                cmd.Parameters.AddWithValue("@status", comment.Status.ToString());
+                cmd.Parameters.AddWithValue("@submissionId",
+                    comment.SubmissionId > 0 ? (object)comment.SubmissionId : DBNull.Value);
+                cmd.Parameters.AddWithValue("@formTitle", (object?)comment.FormTitle ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@systemLevel", comment.SystemLevel.ToString());
+                cmd.ExecuteNonQuery();
+
+                comment.Id = (int)cmd.LastInsertedId;
+            }
+
             CommentsUpdated?.Invoke();
         }
 
@@ -680,39 +791,5 @@ namespace EvaluaTeach
             };
         }
 
-        public static void SeedSampleData()
-        {
-            using var conn = Database.GetConnection();
-            conn.Open();
-
-            var cmd = new MySqlCommand("SELECT COUNT(*) FROM EvaluationForm", conn);
-            var count = Convert.ToInt32(cmd.ExecuteScalar());
-            if (count > 0) return;
-
-            // Get default admin ID
-            var adminCmd = new MySqlCommand("SELECT AdminID FROM Admin LIMIT 1", conn);
-            var adminResult = adminCmd.ExecuteScalar();
-            int? adminId = adminResult != null ? Convert.ToInt32(adminResult) : null;
-
-            var sampleForm = new EvaluationForm
-            {
-                Title = "Teacher Performance Evaluation",
-                Description = "Please evaluate your teacher's performance this semester",
-                TargetCourse = "BSIT",
-                CreatedAt = DateTime.Now,
-                DueDate = DateTime.Now.AddDays(14),
-                IsActive = true,
-                CreatedById = adminId,
-                Questions = new List<FormQuestion>
-                {
-                    new() { Text = "Knowledge of the subject matter", Type = QuestionType.Rating, IsRequired = true, MinRating = 1, MaxRating = 5, OrderIndex = 0 },
-                    new() { Text = "Teaching methodology and presentation skills", Type = QuestionType.Rating, IsRequired = true, MinRating = 1, MaxRating = 5, OrderIndex = 1 },
-                    new() { Text = "Classroom management and discipline", Type = QuestionType.Rating, IsRequired = true, MinRating = 1, MaxRating = 5, OrderIndex = 2 },
-                    new() { Text = "Additional comments or suggestions", Type = QuestionType.Text, IsRequired = false, OrderIndex = 3 }
-                }
-            };
-
-            AddForm(sampleForm);
-        }
     }
 }

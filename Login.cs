@@ -242,8 +242,6 @@ namespace EvaluaTeach
                     ProfileStore.LoadAvatarFromDatabase(numericId.Value);
                 }
 
-                FormDataStore.SeedSampleData();
-
                 if (detectedRole == UserRole.Admin)
                 {
                     Program.NavigateTo(new AdminHome());
@@ -281,52 +279,12 @@ namespace EvaluaTeach
 
             if (adminCount == 0)
             {
-                // Create default admin
+                // Create default admin only
                 var insertAdmin = new MySqlCommand(@"
                     INSERT INTO Admin (FirstName, LastName, Email, AccessLevel, Password)
                     VALUES ('System', 'Admin', 'admin@evaluateach.edu', 'SuperAdmin', @password)", conn);
                 insertAdmin.Parameters.AddWithValue("@password", HashPassword("admin123"));
                 insertAdmin.ExecuteNonQuery();
-            }
-
-            // Check if student exists
-            var studentCmd = new MySqlCommand("SELECT COUNT(*) FROM Student WHERE IDNumber = '2024-000001'", conn);
-            var studentCount = Convert.ToInt32(studentCmd.ExecuteScalar());
-
-            if (studentCount == 0)
-            {
-                // Create default student
-                var insertStudent = new MySqlCommand(@"
-                    INSERT INTO Student (IDNumber, FirstName, LastName, Email, Course, YearLevel, Password)
-                    VALUES ('2024-000001', 'Juan', 'Dela Cruz', 'juan@student.edu', 'BSIT', 2, @password)", conn);
-                insertStudent.Parameters.AddWithValue("@password", HashPassword("student123"));
-                insertStudent.ExecuteNonQuery();
-            }
-
-            // Create another test student for BSCS
-            var studentCmd2 = new MySqlCommand("SELECT COUNT(*) FROM Student WHERE IDNumber = '2024-000002'", conn);
-            var studentCount2 = Convert.ToInt32(studentCmd2.ExecuteScalar());
-
-            if (studentCount2 == 0)
-            {
-                var insertStudent2 = new MySqlCommand(@"
-                    INSERT INTO Student (IDNumber, FirstName, LastName, Email, Course, YearLevel, Password)
-                    VALUES ('2024-000002', 'Maria', 'Santos', 'maria@student.edu', 'BSCS', 3, @password)", conn);
-                insertStudent2.Parameters.AddWithValue("@password", HashPassword("student123"));
-                insertStudent2.ExecuteNonQuery();
-            }
-
-            // Check if default teacher exists
-            var teacherCmd2 = new MySqlCommand("SELECT COUNT(*) FROM Teacher WHERE Email = 'teacher@evaluateach.edu'", conn);
-            var teacherCount = Convert.ToInt32(teacherCmd2.ExecuteScalar());
-
-            if (teacherCount == 0)
-            {
-                var insertTeacher = new MySqlCommand(@"
-                    INSERT INTO Teacher (FirstName, LastName, Email, Department, Password, CreatedAt)
-                    VALUES ('Default', 'Teacher', 'teacher@evaluateach.edu', 'General', @password, NOW())", conn);
-                insertTeacher.Parameters.AddWithValue("@password", HashPassword("teacher123"));
-                insertTeacher.ExecuteNonQuery();
             }
         }
 

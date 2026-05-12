@@ -40,9 +40,9 @@ namespace EvaluaTeach
         private void ConfigureFormBuilder()
         {
             Text = editingForm == null ? "Create New Form" : "Edit Form";
-            Size = new Size(900, 700);
-            MinimumSize = new Size(800, 600);
-            StartPosition = FormStartPosition.CenterParent;
+            WindowState = FormWindowState.Maximized;
+            MinimumSize = new Size(900, 700);
+            StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.FromArgb(245, 247, 251);
 
             var header = new Panel

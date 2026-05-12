@@ -34,8 +34,10 @@
             labelSubtitle = new Label();
             labelStudentId = new Label();
             textBoxStudentId = new TextBox();
-            labelFullName = new Label();
-            textBoxFullName = new TextBox();
+            labelFirstName = new Label();
+            textBoxFirstName = new TextBox();
+            labelLastName = new Label();
+            textBoxLastName = new TextBox();
             labelEmail = new Label();
             textBoxEmail = new TextBox();
             labelProgram = new Label();
@@ -98,8 +100,10 @@
             panel1.Controls.Add(labelProgram);
             panel1.Controls.Add(textBoxEmail);
             panel1.Controls.Add(labelEmail);
-            panel1.Controls.Add(textBoxFullName);
-            panel1.Controls.Add(labelFullName);
+            panel1.Controls.Add(textBoxFirstName);
+            panel1.Controls.Add(labelFirstName);
+            panel1.Controls.Add(textBoxLastName);
+            panel1.Controls.Add(labelLastName);
             panel1.Controls.Add(textBoxStudentId);
             panel1.Controls.Add(labelStudentId);
             panel1.Controls.Add(labelSubtitle);
@@ -135,19 +139,35 @@
             // 
             // labelFullName
             // 
-            labelFullName.AutoSize = true;
-            labelFullName.Location = new Point(34, 121);
-            labelFullName.Name = "labelFullName";
-            labelFullName.Size = new Size(76, 20);
-            labelFullName.TabIndex = 3;
-            labelFullName.Text = "Full Name";
+            labelFirstName.AutoSize = true;
+            labelFirstName.Location = new Point(34, 121);
+            labelFirstName.Name = "labelFirstName";
+            labelFirstName.Size = new Size(80, 20);
+            labelFirstName.TabIndex = 3;
+            labelFirstName.Text = "First Name";
             // 
-            // textBoxFullName
+            // textBoxFirstName
             // 
-            textBoxFullName.Location = new Point(34, 144);
-            textBoxFullName.Name = "textBoxFullName";
-            textBoxFullName.Size = new Size(292, 27);
-            textBoxFullName.TabIndex = 4;
+            textBoxFirstName.Location = new Point(34, 144);
+            textBoxFirstName.Name = "textBoxFirstName";
+            textBoxFirstName.Size = new Size(140, 27);
+            textBoxFirstName.TabIndex = 4;
+            // 
+            // labelLastName
+            // 
+            labelLastName.AutoSize = true;
+            labelLastName.Location = new Point(186, 121);
+            labelLastName.Name = "labelLastName";
+            labelLastName.Size = new Size(79, 20);
+            labelLastName.TabIndex = 3;
+            labelLastName.Text = "Last Name";
+            // 
+            // textBoxLastName
+            // 
+            textBoxLastName.Location = new Point(186, 144);
+            textBoxLastName.Name = "textBoxLastName";
+            textBoxLastName.Size = new Size(140, 27);
+            textBoxLastName.TabIndex = 4;
             // 
             // labelEmail
             // 
@@ -282,8 +302,10 @@
         private Label labelSubtitle;
         private Label labelStudentId;
         private TextBox textBoxStudentId;
-        private Label labelFullName;
-        private TextBox textBoxFullName;
+        private Label labelFirstName;
+        private TextBox textBoxFirstName;
+        private Label labelLastName;
+        private TextBox textBoxLastName;
         private Label labelEmail;
         private TextBox textBoxEmail;
         private Label labelProgram;

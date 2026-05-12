@@ -161,8 +161,9 @@ namespace EvaluaTeach
                 studentId = ProfileStore.StudentId;
             }
 
-            var availableForms = forms.Where(f => !FormDataStore.HasStudentSubmitted(f.Id, studentId)).ToList();
-            var completedForms = forms.Where(f => FormDataStore.HasStudentSubmitted(f.Id, studentId)).ToList();
+            int tid = filterTeacherId ?? 0;
+            var availableForms = forms.Where(f => !FormDataStore.HasStudentSubmitted(f.Id, studentId, tid)).ToList();
+            var completedForms = forms.Where(f => FormDataStore.HasStudentSubmitted(f.Id, studentId, tid)).ToList();
 
             if (!availableForms.Any() && !completedForms.Any())
             {

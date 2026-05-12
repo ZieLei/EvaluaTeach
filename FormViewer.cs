@@ -664,6 +664,7 @@ namespace EvaluaTeach
                     StudentId = studentId,
                     StudentName = studentName,
                     StudentEmail = studentEmail,
+                    TeacherId = teacherId,
                     FormTitle = form.Title,
                     CommentText = commentText,
                     SystemLevel = detectedLevel,

@@ -57,7 +57,8 @@ namespace EvaluaTeach
             labelSubtitle.Font = new Font("Inter", 9.5F, FontStyle.Regular);
 
             StyleLabel(labelStudentId);
-            StyleLabel(labelFullName);
+            StyleLabel(labelFirstName);
+            StyleLabel(labelLastName);
             StyleLabel(labelEmail);
             StyleLabel(labelProgram);
             StyleLabel(labelYearLevel);
@@ -66,7 +67,8 @@ namespace EvaluaTeach
             StyleLabel(labelConfirmPassword);
 
             StyleTextBox(textBoxStudentId, "e.g. 2024-000123");
-            StyleTextBox(textBoxFullName, "Enter your full name");
+            StyleTextBox(textBoxFirstName, "Enter first name");
+            StyleTextBox(textBoxLastName, "Enter last name");
             StyleTextBox(textBoxEmail, "Enter your school email");
             StyleTextBox(textBoxSection, "e.g. BSIT 2A");
             StyleTextBox(textBoxPassword, "Create a password", true);
@@ -179,9 +181,13 @@ namespace EvaluaTeach
             textBoxStudentId.Location = new Point(left, 84);
             textBoxStudentId.Size = new Size(fullWidth, 32);
 
-            labelFullName.Location = new Point(left, 122);
-            textBoxFullName.Location = new Point(left, 146);
-            textBoxFullName.Size = new Size(fullWidth, 32);
+            labelFirstName.Location = new Point(left, 122);
+            textBoxFirstName.Location = new Point(left, 146);
+            textBoxFirstName.Size = new Size(halfWidth, 32);
+
+            labelLastName.Location = new Point(left + halfWidth + 12, 122);
+            textBoxLastName.Location = new Point(left + halfWidth + 12, 146);
+            textBoxLastName.Size = new Size(halfWidth, 32);
 
             labelEmail.Location = new Point(left, 184);
             textBoxEmail.Location = new Point(left, 208);
@@ -219,13 +225,15 @@ namespace EvaluaTeach
         private void buttonCreateAccount_Click(object sender, EventArgs e)
         {
             string studentId = textBoxStudentId.Text.Trim();
-            string fullName = textBoxFullName.Text.Trim();
+            string firstName = textBoxFirstName.Text.Trim();
+            string lastName = textBoxLastName.Text.Trim();
             string email = textBoxEmail.Text.Trim();
             string program = comboBoxProgram.SelectedItem?.ToString() ?? "BSIT";
             string yearLevel = comboBoxYearLevel.SelectedItem?.ToString() ?? "1st Year";
             string section = textBoxSection.Text.Trim();
             string password = textBoxPassword.Text;
             string confirmPassword = textBoxConfirmPassword.Text;
+            string fullName = $"{firstName} {lastName}".Trim();
 
             if (string.IsNullOrWhiteSpace(studentId) || studentId == "e.g. 2024-000123")
             {
@@ -233,9 +241,15 @@ namespace EvaluaTeach
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(fullName) || fullName == "Enter your full name")
+            if (string.IsNullOrWhiteSpace(firstName) || firstName == "Enter first name")
             {
-                MessageBox.Show("Please enter your full name.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please enter your first name.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(lastName) || lastName == "Enter last name")
+            {
+                MessageBox.Show("Please enter your last name.", "Required Field", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -264,11 +278,6 @@ namespace EvaluaTeach
             else if (yearLevel.StartsWith("3rd")) yearLevelNum = 3;
             else if (yearLevel.StartsWith("4th")) yearLevelNum = 4;
             else if (yearLevel.StartsWith("5th")) yearLevelNum = 5;
-
-            // Parse first and last name
-            var nameParts = fullName.Split(' ', 2);
-            string firstName = nameParts[0];
-            string lastName = nameParts.Length > 1 ? nameParts[1] : "";
 
             // Save to database
             int? databaseStudentId = null;
@@ -313,8 +322,6 @@ namespace EvaluaTeach
             string meta = $"Student {program}";
             SessionStore.Login(studentId, databaseStudentId, fullName, email, UserRole.Student);
             ProfileStore.UpdateProfile(fullName, meta, email, studentId, databaseStudentId);
-
-            FormDataStore.SeedSampleData();
 
             MessageBox.Show("Account created successfully! Welcome to EvaluaTeach.",
                 "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);

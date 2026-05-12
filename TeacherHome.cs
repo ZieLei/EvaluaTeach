@@ -449,7 +449,7 @@ namespace EvaluaTeach
                     Font = new Font("Inter", 9F),
                     ForeColor = Color.FromArgb(100, 116, 139),
                     AutoSize = true,
-                    Location = new Point(160, 34)
+                    Location = new Point(200, 36)
                 });
                 detailFlow.Controls.Add(summaryRow);
             }
@@ -459,9 +459,11 @@ namespace EvaluaTeach
             var metaLines = new List<string>();
             var qaLines   = new List<(string Question, string Answer)>();
             string? pendingQ = null;
+            string? pendingA = null;
 
-            foreach (var line in lines)
+            for (int i = 0; i < lines.Count; i++)
             {
+                var line = lines[i];
                 if (line.StartsWith("---")) { inHeader = false; continue; }
                 if (inHeader)
                 {
@@ -471,14 +473,28 @@ namespace EvaluaTeach
                 // Lines like "1. Question text"
                 if (Regex.IsMatch(line, @"^\d+\."))
                 {
+                    // Save previous Q&A if exists
+                    if (pendingQ != null && pendingA != null)
+                    {
+                        qaLines.Add((pendingQ, string.IsNullOrWhiteSpace(pendingA) ? "(no answer)" : pendingA.Trim()));
+                    }
                     pendingQ = Regex.Replace(line, @"^\d+\.\s*", "").Trim();
+                    pendingA = null;
                 }
                 else if (line.TrimStart().StartsWith("Answer:") && pendingQ != null)
                 {
-                    var ans = line.TrimStart().Substring("Answer:".Length).Trim();
-                    qaLines.Add((pendingQ, string.IsNullOrWhiteSpace(ans) ? "(no answer)" : ans));
-                    pendingQ = null;
+                    pendingA = line.TrimStart().Substring("Answer:".Length).Trim();
                 }
+                else if (pendingA != null && !string.IsNullOrWhiteSpace(line) && !line.StartsWith("SubmissionID:"))
+                {
+                    // Continue multi-line answer
+                    pendingA += "\n" + line.Trim();
+                }
+            }
+            // Save last Q&A
+            if (pendingQ != null && pendingA != null)
+            {
+                qaLines.Add((pendingQ, string.IsNullOrWhiteSpace(pendingA) ? "(no answer)" : pendingA.Trim()));
             }
 
             // Render meta info (Teacher, Department lines)
@@ -543,7 +559,7 @@ namespace EvaluaTeach
                     ForeColor = Color.White,
                     BackColor = AccentGreen,
                     AutoSize = false,
-                    Size = new Size(28, 28),
+                    Size = new Size(36, 28),
                     TextAlign = ContentAlignment.MiddleCenter,
                     Location = new Point(12, 8)
                 };
@@ -554,9 +570,9 @@ namespace EvaluaTeach
                     Font = new Font("Inter", 9F),
                     ForeColor = Color.FromArgb(71, 85, 105),
                     AutoSize = false,
-                    Size = new Size((qaRow.Width - 120) / 2, 28),
+                    Size = new Size((qaRow.Width - 130) / 2, 28),
                     TextAlign = ContentAlignment.MiddleLeft,
-                    Location = new Point(48, 8)
+                    Location = new Point(54, 8)
                 };
 
                 var answerLbl = new Label
@@ -565,15 +581,65 @@ namespace EvaluaTeach
                     Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
                     ForeColor = Color.FromArgb(15, 23, 42),
                     AutoSize = false,
-                    Size = new Size((qaRow.Width - 120) / 2, 28),
+                    Size = new Size((qaRow.Width - 130) / 2, 28),
                     TextAlign = ContentAlignment.MiddleLeft,
-                    Location = new Point(48 + (qaRow.Width - 120) / 2 + 8, 8)
+                    Location = new Point(54 + (qaRow.Width - 130) / 2 + 10, 8)
                 };
 
                 qaRow.Controls.Add(qNumBadge);
                 qaRow.Controls.Add(qText);
                 qaRow.Controls.Add(answerLbl);
                 detailFlow.Controls.Add(qaRow);
+            }
+
+            // Add comment section if available
+            if (!string.IsNullOrWhiteSpace(report.CommentText))
+            {
+                var commentLevel = report.CommentLevel ?? CommentLevel.Normal;
+                Color commentBg = commentLevel switch
+                {
+                    CommentLevel.Severe => Color.FromArgb(254, 226, 226),
+                    CommentLevel.Moderate => Color.FromArgb(255, 237, 213),
+                    CommentLevel.Mild => Color.FromArgb(254, 252, 232),
+                    _ => Color.FromArgb(220, 252, 231)
+                };
+                Color commentFg = commentLevel switch
+                {
+                    CommentLevel.Severe => Color.FromArgb(153, 27, 27),
+                    CommentLevel.Moderate => Color.FromArgb(154, 52, 18),
+                    CommentLevel.Mild => Color.FromArgb(133, 77, 14),
+                    _ => Color.FromArgb(22, 101, 52)
+                };
+
+                var commentPanel = new Panel
+                {
+                    BackColor = commentBg,
+                    Size = new Size(width - 80, 80),
+                    Margin = new Padding(0, 12, 0, 0)
+                };
+
+                var commentHeader = new Label
+                {
+                    Text = "Additional Comment",
+                    Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                    ForeColor = commentFg,
+                    AutoSize = true,
+                    Location = new Point(12, 8)
+                };
+
+                var commentText = new Label
+                {
+                    Text = report.CommentText,
+                    Font = new Font("Inter", 9F),
+                    ForeColor = Color.FromArgb(71, 85, 105),
+                    AutoSize = false,
+                    Size = new Size(width - 104, 60),
+                    Location = new Point(12, 28)
+                };
+
+                commentPanel.Controls.Add(commentHeader);
+                commentPanel.Controls.Add(commentText);
+                detailFlow.Controls.Add(commentPanel);
             }
 
             // Fallback: if no parsed Q&A, show a plain text label
