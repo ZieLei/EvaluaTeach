@@ -190,12 +190,51 @@ namespace EvaluaTeach
                 return;
             }
 
-            var sortedQuestions = form.Questions.OrderBy(q => q.OrderIndex).ToList();
+            // Group questions by category
+            var groupedQuestions = form.Questions
+                .OrderBy(q => q.OrderIndex)
+                .GroupBy(q => q.Category ?? "General")
+                .OrderBy(g => g.Key);
 
-            foreach (var question in sortedQuestions)
+            foreach (var group in groupedQuestions)
             {
-                var questionPanel = CreateQuestionPanel(question);
-                questionsPanel.Controls.Add(questionPanel);
+                // Add category header
+                var categoryHeader = new Panel
+                {
+                    BackColor = Color.FromArgb(38, 166, 91),
+                    Size = new Size(800, 40),
+                    Margin = new Padding(0, 8, 0, 16),
+                    Padding = new Padding(16, 0, 16, 0)
+                };
+
+                var categoryLabel = new Label
+                {
+                    Text = group.Key,
+                    Font = new Font("Inter SemiBold", 12F, FontStyle.Bold),
+                    ForeColor = Color.White,
+                    AutoSize = true,
+                    Location = new Point(16, 10)
+                };
+
+                var questionCountLabel = new Label
+                {
+                    Text = $"({group.Count()} question{(group.Count() > 1 ? "s" : "")})",
+                    Font = new Font("Inter", 9F),
+                    ForeColor = Color.FromArgb(200, 230, 210),
+                    AutoSize = true,
+                    Location = new Point(categoryLabel.Right + 8, 12)
+                };
+
+                categoryHeader.Controls.Add(categoryLabel);
+                categoryHeader.Controls.Add(questionCountLabel);
+                questionsPanel.Controls.Add(categoryHeader);
+
+                // Add questions in this category
+                foreach (var question in group)
+                {
+                    var questionPanel = CreateQuestionPanel(question);
+                    questionsPanel.Controls.Add(questionPanel);
+                }
             }
 
             var commentPanel = BuildCommentPanel();

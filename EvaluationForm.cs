@@ -21,6 +21,7 @@ namespace EvaluaTeach
         public int? MaxRating { get; set; } = 5;
         public List<string> Options { get; set; } = new();
         public int OrderIndex { get; set; } = 0;
+        public string Category { get; set; } = "General";
     }
 
     public class EvaluationForm
@@ -35,6 +36,8 @@ namespace EvaluaTeach
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? DueDate { get; set; }
         public bool IsActive { get; set; } = true;
+        public string Semester { get; set; } = string.Empty;
+        public string SchoolYear { get; set; } = string.Empty;
         public string CreatedBy { get; set; } = string.Empty;
         public int? CreatedById { get; set; }  // Foreign key to Admin table
     }
@@ -78,6 +81,8 @@ namespace EvaluaTeach
         public decimal AverageScore { get; set; }
         public int ResponseCount { get; set; }
         public string ReportData { get; set; } = string.Empty;
+        public string Semester { get; set; } = string.Empty;
+        public string SchoolYear { get; set; } = string.Empty;
         public string? CommentText { get; set; }
         public CommentLevel? CommentLevel { get; set; }
     }

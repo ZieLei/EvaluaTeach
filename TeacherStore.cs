@@ -191,9 +191,35 @@ namespace EvaluaTeach
             using var conn = Database.GetConnection();
             conn.Open();
 
-            var cmd = new MySqlCommand("DELETE FROM Teacher WHERE TeacherID = @id", conn);
-            cmd.Parameters.AddWithValue("@id", teacherId);
-            cmd.ExecuteNonQuery();
+            // Delete comments tied to submissions for this teacher
+            new MySqlCommand(@"
+                DELETE c FROM comment c
+                INNER JOIN FormSubmission fs ON fs.SubmissionID = c.SubmissionID
+                WHERE fs.TeacherID = @id", conn)
+                { Parameters = { new MySqlParameter("@id", teacherId) } }.ExecuteNonQuery();
+
+            // Delete reports
+            new MySqlCommand("DELETE FROM report WHERE TeacherID = @id", conn)
+                { Parameters = { new MySqlParameter("@id", teacherId) } }.ExecuteNonQuery();
+
+            // Delete survey responses (answers) for this teacher's submissions
+            new MySqlCommand(@"
+                DELETE sr FROM SurveyResponse sr
+                INNER JOIN FormSubmission fs ON fs.SubmissionID = sr.SubmissionID
+                WHERE fs.TeacherID = @id", conn)
+                { Parameters = { new MySqlParameter("@id", teacherId) } }.ExecuteNonQuery();
+
+            // Delete submissions
+            new MySqlCommand("DELETE FROM FormSubmission WHERE TeacherID = @id", conn)
+                { Parameters = { new MySqlParameter("@id", teacherId) } }.ExecuteNonQuery();
+
+            // Delete teacher assignments
+            new MySqlCommand("DELETE FROM teacher_assignment WHERE TeacherID = @id", conn)
+                { Parameters = { new MySqlParameter("@id", teacherId) } }.ExecuteNonQuery();
+
+            // Finally delete the teacher
+            new MySqlCommand("DELETE FROM Teacher WHERE TeacherID = @id", conn)
+                { Parameters = { new MySqlParameter("@id", teacherId) } }.ExecuteNonQuery();
 
             TeachersUpdated?.Invoke();
         }
@@ -324,6 +350,44 @@ namespace EvaluaTeach
             return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
         }
 
+        public static HashSet<int> GetSentSubmissionIds(int teacherId, int evaluationId)
+        {
+            var ids = new HashSet<int>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+            var cmd = new MySqlCommand(@"
+                SELECT ReportData FROM report
+                WHERE TeacherID = @teacherId AND EvaluationID = @evaluationId", conn);
+            cmd.Parameters.AddWithValue("@teacherId", teacherId);
+            cmd.Parameters.AddWithValue("@evaluationId", evaluationId);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var data = reader.IsDBNull(0) ? "" : reader.GetString(0);
+                var match = System.Text.RegularExpressions.Regex.Match(data, @"SubmissionID:(\d+)");
+                if (match.Success && int.TryParse(match.Groups[1].Value, out var sid))
+                    ids.Add(sid);
+            }
+            return ids;
+        }
+
+        public static int GetReportIdForSubmission(int teacherId, int evaluationId, int submissionId)
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+            var cmd = new MySqlCommand(@"
+                SELECT ReportID FROM report
+                WHERE TeacherID = @teacherId
+                  AND EvaluationID = @evaluationId
+                  AND ReportData LIKE @submissionPattern
+                LIMIT 1", conn);
+            cmd.Parameters.AddWithValue("@teacherId", teacherId);
+            cmd.Parameters.AddWithValue("@evaluationId", evaluationId);
+            cmd.Parameters.AddWithValue("@submissionPattern", $"%SubmissionID:{submissionId}%");
+            var result = cmd.ExecuteScalar();
+            return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+        }
+
         public static void SaveReport(int teacherId, int evaluationId, decimal avgScore, int responseCount, string reportData)
         {
             using var conn = Database.GetConnection();
@@ -403,6 +467,8 @@ namespace EvaluaTeach
                 SELECT r.ReportID, r.TeacherID, r.EvaluationID, r.SubmissionDate,
                        r.AverageScore, r.ResponseCount, r.ReportData,
                        COALESCE(ef.Title, '') AS FormTitle,
+                       COALESCE(ef.Semester, '') AS Semester,
+                       COALESCE(ef.SchoolYear, '') AS SchoolYear,
                        CONCAT(t.FirstName, ' ', t.LastName) AS TeacherName
                 FROM report r
                 LEFT JOIN EvaluationForm ef ON ef.EvaluationID = r.EvaluationID
@@ -422,11 +488,50 @@ namespace EvaluaTeach
                     SubmissionDate = reader.GetDateTime("SubmissionDate"),
                     AverageScore   = reader.IsDBNull(reader.GetOrdinal("AverageScore")) ? 0 : reader.GetDecimal("AverageScore"),
                     ResponseCount  = reader.IsDBNull(reader.GetOrdinal("ResponseCount")) ? 0 : reader.GetInt32("ResponseCount"),
-                    ReportData     = reader.IsDBNull(reader.GetOrdinal("ReportData")) ? "" : reader.GetString("ReportData")
+                    ReportData     = reader.IsDBNull(reader.GetOrdinal("ReportData")) ? "" : reader.GetString("ReportData"),
+                    Semester       = reader.IsDBNull(reader.GetOrdinal("Semester")) ? "" : reader.GetString("Semester"),
+                    SchoolYear     = reader.IsDBNull(reader.GetOrdinal("SchoolYear")) ? "" : reader.GetString("SchoolYear")
                 });
             }
 
             return reports;
+        }
+
+        public static List<(string Label, string Semester, string SchoolYear, decimal AvgScore, int ResponseCount)> GetTeacherPerformanceBySemester(int teacherId)
+        {
+            var results = new List<(string, string, string, decimal, int)>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                SELECT ef.Semester, ef.SchoolYear,
+                       AVG(CAST(sr.Answer AS DECIMAL(5,2))) AS AvgScore,
+                       COUNT(DISTINCT fs.SubmissionID) AS ResponseCount
+                FROM FormSubmission fs
+                JOIN SurveyResponse sr ON sr.SubmissionID = fs.SubmissionID
+                JOIN SurveyQuestion fq ON fq.QuestionID = sr.QuestionID AND fq.QuestionType = 'rating'
+                JOIN EvaluationForm ef ON ef.EvaluationID = fs.EvaluationID
+                WHERE fs.TeacherID = @teacherId
+                  AND ef.Semester IS NOT NULL AND ef.Semester != ''
+                  AND ef.SchoolYear IS NOT NULL AND ef.SchoolYear != ''
+                  AND sr.Answer REGEXP '^[0-9]+(\.[0-9]+)?$'
+                GROUP BY ef.SchoolYear, ef.Semester
+                ORDER BY ef.SchoolYear DESC,
+                         FIELD(ef.Semester, '2nd', '1st', 'Summer')", conn);
+            cmd.Parameters.AddWithValue("@teacherId", teacherId);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                string sem = reader.IsDBNull(reader.GetOrdinal("Semester")) ? "" : reader.GetString("Semester");
+                string sy = reader.IsDBNull(reader.GetOrdinal("SchoolYear")) ? "" : reader.GetString("SchoolYear");
+                decimal avg = reader.IsDBNull(reader.GetOrdinal("AvgScore")) ? 0 : reader.GetDecimal("AvgScore");
+                int count = reader.IsDBNull(reader.GetOrdinal("ResponseCount")) ? 0 : reader.GetInt32("ResponseCount");
+                string label = $"{sem} Sem {sy}";
+                results.Add((label, sem, sy, avg, count));
+            }
+
+            return results;
         }
 
         public static void DeleteReport(int reportId)

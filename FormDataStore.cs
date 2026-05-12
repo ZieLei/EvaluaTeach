@@ -11,6 +11,26 @@ namespace EvaluaTeach
         public static event Action? ResponsesUpdated;
         public static event Action? CommentsUpdated;
 
+        // ==================== SEMESTER HELPERS ====================
+
+        public static string GetCurrentSemester()
+        {
+            int month = DateTime.Now.Month;
+            if (month >= 8 && month <= 12) return "1st";
+            if (month >= 1 && month <= 5) return "2nd";
+            return "Summer";
+        }
+
+        public static string GetCurrentSchoolYear()
+        {
+            int year = DateTime.Now.Year;
+            int month = DateTime.Now.Month;
+            if (month >= 8)
+                return $"{year}-{year + 1}";
+            else
+                return $"{year - 1}-{year}";
+        }
+
         // ==================== FORMS ====================
 
         public static List<EvaluationForm> GetAllForms()
@@ -21,7 +41,7 @@ namespace EvaluaTeach
 
             var cmd = new MySqlCommand(@"
                 SELECT EvaluationID, Title, Description, TargetCourse, 
-                       DueDate, IsActive, DateCreated, CreatedBy
+                       DueDate, IsActive, DateCreated, CreatedBy, Semester, SchoolYear
                 FROM EvaluationForm", conn);
 
             using (var reader = cmd.ExecuteReader())
@@ -38,6 +58,8 @@ namespace EvaluaTeach
                         IsActive = reader.GetBoolean("IsActive"),
                         CreatedAt = reader.GetDateTime("DateCreated"),
                         CreatedById = reader.IsDBNull(reader.GetOrdinal("CreatedBy")) ? null : reader.GetInt32("CreatedBy"),
+                        Semester = reader.IsDBNull(reader.GetOrdinal("Semester")) ? "" : reader.GetString("Semester"),
+                        SchoolYear = reader.IsDBNull(reader.GetOrdinal("SchoolYear")) ? "" : reader.GetString("SchoolYear"),
                         Questions = new List<FormQuestion>()
                     });
                 }
@@ -58,9 +80,13 @@ namespace EvaluaTeach
 
         public static List<EvaluationForm> GetFormsForStudent(string course)
         {
+            string currentSemester = GetCurrentSemester();
+            string currentSchoolYear = GetCurrentSchoolYear();
             return GetAllForms()
                 .Where(f => f.IsActive &&
-                    (f.TargetCourse == "All" || f.TargetCourse == course))
+                    (f.TargetCourse == "All" || f.TargetCourse == course) &&
+                    (string.IsNullOrEmpty(f.Semester) || string.IsNullOrEmpty(f.SchoolYear) ||
+                     (f.Semester == currentSemester && f.SchoolYear == currentSchoolYear)))
                 .OrderByDescending(f => f.CreatedAt)
                 .ToList();
         }
@@ -72,7 +98,7 @@ namespace EvaluaTeach
 
             var cmd = new MySqlCommand(@"
                 SELECT EvaluationID, Title, Description, TargetCourse, 
-                       DueDate, IsActive, DateCreated, CreatedBy
+                       DueDate, IsActive, DateCreated, CreatedBy, Semester, SchoolYear
                 FROM EvaluationForm WHERE EvaluationID = @id", conn);
             cmd.Parameters.AddWithValue("@id", id);
 
@@ -91,6 +117,8 @@ namespace EvaluaTeach
                         IsActive = reader.GetBoolean("IsActive"),
                         CreatedAt = reader.GetDateTime("DateCreated"),
                         CreatedById = reader.IsDBNull(reader.GetOrdinal("CreatedBy")) ? null : reader.GetInt32("CreatedBy"),
+                        Semester = reader.IsDBNull(reader.GetOrdinal("Semester")) ? "" : reader.GetString("Semester"),
+                        SchoolYear = reader.IsDBNull(reader.GetOrdinal("SchoolYear")) ? "" : reader.GetString("SchoolYear"),
                         Questions = new List<FormQuestion>()
                     };
                 }
@@ -108,7 +136,7 @@ namespace EvaluaTeach
             var questions = new List<FormQuestion>();
             var cmd = new MySqlCommand(@"
                 SELECT QuestionID, QuestionText, QuestionType, OrderIndex, 
-                       IsRequired, MinRating, MaxRating
+                       IsRequired, MinRating, MaxRating, Category
                 FROM SurveyQuestion WHERE EvaluationID = @formId
                 ORDER BY OrderIndex", conn);
             cmd.Parameters.AddWithValue("@formId", formId);
@@ -126,6 +154,7 @@ namespace EvaluaTeach
                         IsRequired = reader.GetBoolean("IsRequired"),
                         MinRating = reader.IsDBNull(reader.GetOrdinal("MinRating")) ? 1 : reader.GetInt32("MinRating"),
                         MaxRating = reader.IsDBNull(reader.GetOrdinal("MaxRating")) ? 5 : reader.GetInt32("MaxRating"),
+                        Category = reader.IsDBNull(reader.GetOrdinal("Category")) ? "General" : reader.GetString("Category"),
                         Options = new List<string>()
                     });
                 }
@@ -170,14 +199,16 @@ namespace EvaluaTeach
             {
                 // Insert form (EvaluationID is AUTO_INCREMENT)
                 var cmd = new MySqlCommand(@"
-                    INSERT INTO EvaluationForm (Title, Description, TargetCourse, DueDate, IsActive, CreatedBy)
-                    VALUES (@title, @desc, @course, @dueDate, @isActive, @createdById)", conn, tx);
+                    INSERT INTO EvaluationForm (Title, Description, TargetCourse, DueDate, IsActive, CreatedBy, Semester, SchoolYear)
+                    VALUES (@title, @desc, @course, @dueDate, @isActive, @createdById, @semester, @schoolYear)", conn, tx);
                 cmd.Parameters.AddWithValue("@title", form.Title);
                 cmd.Parameters.AddWithValue("@desc", string.IsNullOrEmpty(form.Description) ? (object)DBNull.Value : form.Description);
                 cmd.Parameters.AddWithValue("@course", form.TargetCourse ?? "All");
                 cmd.Parameters.AddWithValue("@dueDate", form.DueDate.HasValue ? (object)form.DueDate.Value : DBNull.Value);
                 cmd.Parameters.AddWithValue("@isActive", form.IsActive);
                 cmd.Parameters.AddWithValue("@createdById", form.CreatedById.HasValue ? (object)form.CreatedById.Value : DBNull.Value);
+                cmd.Parameters.AddWithValue("@semester", string.IsNullOrEmpty(form.Semester) ? (object)DBNull.Value : form.Semester);
+                cmd.Parameters.AddWithValue("@schoolYear", string.IsNullOrEmpty(form.SchoolYear) ? (object)DBNull.Value : form.SchoolYear);
                 cmd.ExecuteNonQuery();
 
                 // Get the new form ID
@@ -187,8 +218,8 @@ namespace EvaluaTeach
                 foreach (var q in form.Questions)
                 {
                     var qCmd = new MySqlCommand(@"
-                        INSERT INTO SurveyQuestion (EvaluationID, QuestionText, QuestionType, OrderIndex, IsRequired, MinRating, MaxRating)
-                        VALUES (@formId, @text, @type, @orderIdx, @isRequired, @minRating, @maxRating)", conn, tx);
+                        INSERT INTO SurveyQuestion (EvaluationID, QuestionText, QuestionType, OrderIndex, IsRequired, MinRating, MaxRating, Category)
+                        VALUES (@formId, @text, @type, @orderIdx, @isRequired, @minRating, @maxRating, @category)", conn, tx);
                     qCmd.Parameters.AddWithValue("@formId", form.Id);
                     qCmd.Parameters.AddWithValue("@text", q.Text);
                     qCmd.Parameters.AddWithValue("@type", q.Type.ToString().ToLower());
@@ -196,6 +227,7 @@ namespace EvaluaTeach
                     qCmd.Parameters.AddWithValue("@isRequired", q.IsRequired);
                     qCmd.Parameters.AddWithValue("@minRating", q.MinRating.HasValue ? (object)q.MinRating.Value : DBNull.Value);
                     qCmd.Parameters.AddWithValue("@maxRating", q.MaxRating.HasValue ? (object)q.MaxRating.Value : DBNull.Value);
+                    qCmd.Parameters.AddWithValue("@category", string.IsNullOrEmpty(q.Category) ? "General" : q.Category);
                     qCmd.ExecuteNonQuery();
                     q.Id = (int)qCmd.LastInsertedId;
 
@@ -237,7 +269,8 @@ namespace EvaluaTeach
                 var cmd = new MySqlCommand(@"
                     UPDATE EvaluationForm 
                     SET Title = @title, Description = @desc, TargetCourse = @course, 
-                        DueDate = @dueDate, IsActive = @isActive
+                        DueDate = @dueDate, IsActive = @isActive,
+                        Semester = @semester, SchoolYear = @schoolYear
                     WHERE EvaluationID = @id", conn, tx);
                 cmd.Parameters.AddWithValue("@id", form.Id);
                 cmd.Parameters.AddWithValue("@title", form.Title);
@@ -245,6 +278,8 @@ namespace EvaluaTeach
                 cmd.Parameters.AddWithValue("@course", form.TargetCourse ?? "All");
                 cmd.Parameters.AddWithValue("@dueDate", form.DueDate.HasValue ? (object)form.DueDate.Value : DBNull.Value);
                 cmd.Parameters.AddWithValue("@isActive", form.IsActive);
+                cmd.Parameters.AddWithValue("@semester", string.IsNullOrEmpty(form.Semester) ? (object)DBNull.Value : form.Semester);
+                cmd.Parameters.AddWithValue("@schoolYear", string.IsNullOrEmpty(form.SchoolYear) ? (object)DBNull.Value : form.SchoolYear);
                 cmd.ExecuteNonQuery();
 
                 // First delete responses and submissions for this form (to satisfy FKs)
@@ -271,8 +306,8 @@ namespace EvaluaTeach
                 foreach (var q in form.Questions)
                 {
                     var qCmd = new MySqlCommand(@"
-                        INSERT INTO SurveyQuestion (EvaluationID, QuestionText, QuestionType, OrderIndex, IsRequired, MinRating, MaxRating)
-                        VALUES (@formId, @text, @type, @orderIdx, @isRequired, @minRating, @maxRating)", conn, tx);
+                        INSERT INTO SurveyQuestion (EvaluationID, QuestionText, QuestionType, OrderIndex, IsRequired, MinRating, MaxRating, Category)
+                        VALUES (@formId, @text, @type, @orderIdx, @isRequired, @minRating, @maxRating, @category)", conn, tx);
                     qCmd.Parameters.AddWithValue("@formId", form.Id);
                     qCmd.Parameters.AddWithValue("@text", q.Text);
                     qCmd.Parameters.AddWithValue("@type", q.Type.ToString().ToLower());
@@ -280,6 +315,7 @@ namespace EvaluaTeach
                     qCmd.Parameters.AddWithValue("@isRequired", q.IsRequired);
                     qCmd.Parameters.AddWithValue("@minRating", q.MinRating.HasValue ? (object)q.MinRating.Value : DBNull.Value);
                     qCmd.Parameters.AddWithValue("@maxRating", q.MaxRating.HasValue ? (object)q.MaxRating.Value : DBNull.Value);
+                    qCmd.Parameters.AddWithValue("@category", string.IsNullOrEmpty(q.Category) ? "General" : q.Category);
                     qCmd.ExecuteNonQuery();
                     q.Id = (int)qCmd.LastInsertedId;
 
@@ -537,11 +573,10 @@ namespace EvaluaTeach
             }
             else
             {
-                // No teacher specified - check for any submission (generic forms)
+                // No teacher specified - check for any submission by this student for this form
                 sql = @"
                     SELECT COUNT(*) FROM FormSubmission 
-                    WHERE EvaluationID = @formId AND StudentIDNumber = @studentId
-                    AND TeacherID IS NULL";
+                    WHERE EvaluationID = @formId AND StudentIDNumber = @studentId";
             }
 
             cmd = new MySqlCommand(sql, conn);
@@ -727,6 +762,54 @@ namespace EvaluaTeach
                 ReviewedAt = reader.IsDBNull(reader.GetOrdinal("ReviewedAt")) ? null : reader.GetDateTime("ReviewedAt"),
                 ReviewedBy = reader.IsDBNull(reader.GetOrdinal("ReviewedBy")) ? "" : reader.GetString("ReviewedBy")
             };
+        }
+
+        public static List<FormComment> GetApprovedCommentsForSubmissions(IEnumerable<int> submissionIds)
+        {
+            var ids = submissionIds.ToList();
+            if (!ids.Any()) return new List<FormComment>();
+
+            var comments = new List<FormComment>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var inClause = string.Join(",", ids.Select((_, i) => $"@id{i}"));
+            var cmd = new MySqlCommand($@"
+                SELECT c.CommentID, c.StudentID, c.Content, c.DateSubmitted, c.Status,
+                       c.SubmissionID, c.FormTitle, c.SystemLevel, c.AdminLevel,
+                       c.ReviewedAt, c.ReviewedBy,
+                       s.IDNumber, s.FirstName, s.LastName
+                FROM comment c
+                LEFT JOIN student s ON s.StudentID = c.StudentID
+                WHERE c.SubmissionID IN ({inClause})
+                  AND c.Status = 'Approved'
+                ORDER BY c.DateSubmitted DESC", conn);
+
+            for (int i = 0; i < ids.Count; i++)
+                cmd.Parameters.AddWithValue($"@id{i}", ids[i]);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var adminLevelStr = reader.IsDBNull(reader.GetOrdinal("AdminLevel")) ? null : reader.GetString("AdminLevel");
+                var firstName = reader.IsDBNull(reader.GetOrdinal("FirstName")) ? "" : reader.GetString("FirstName");
+                var lastName  = reader.IsDBNull(reader.GetOrdinal("LastName"))  ? "" : reader.GetString("LastName");
+                var idNumber  = reader.IsDBNull(reader.GetOrdinal("IDNumber"))  ? "" : reader.GetString("IDNumber");
+                comments.Add(new FormComment
+                {
+                    Id           = reader.GetInt32("CommentID"),
+                    SubmissionId = reader.GetInt32("SubmissionID"),
+                    StudentId    = idNumber,
+                    StudentName  = $"{firstName} {lastName}".Trim(),
+                    FormTitle    = reader.IsDBNull(reader.GetOrdinal("FormTitle")) ? "" : reader.GetString("FormTitle"),
+                    CommentText  = reader.IsDBNull(reader.GetOrdinal("Content")) ? "" : reader.GetString("Content"),
+                    SystemLevel  = reader.IsDBNull(reader.GetOrdinal("SystemLevel")) ? CommentLevel.Normal : ParseCommentLevel(reader.GetString("SystemLevel")),
+                    AdminLevel   = adminLevelStr == null ? null : ParseCommentLevel(adminLevelStr),
+                    Status       = CommentStatus.Approved,
+                    SubmittedAt  = reader.IsDBNull(reader.GetOrdinal("DateSubmitted")) ? DateTime.Now : reader.GetDateTime("DateSubmitted")
+                });
+            }
+            return comments;
         }
 
         public static List<FormComment> GetPendingComments()
