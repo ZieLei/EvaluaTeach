@@ -6,73 +6,162 @@ namespace EvaluaTeach
 {
     public static class CommentClassifier
     {
-        // ── Severe: slurs + extreme profanity ──────────────────────────────────
+        // ── Severe: slurs + extreme profanity (EN / PH) ───────────────────────
         private static readonly string[] SevereWords =
         {
+            // English racial / identity slurs
             "nigger", "nigga", "chink", "spic", "kike", "wetback", "gook",
             "faggot", "fag", "dyke", "tranny", "retard", "cripple",
-            "cunt", "motherfucker", "motherfucking", "cock", "cocksucker",
-            "whore", "slut", "rape", "rapist", "kill yourself", "kys",
-            "go die", "die bitch", "piece of shit", "you piece",
-            "fucking idiot", "fucking stupid", "fucking useless",
-            "fucking worthless", "fucking hate", "i hate you", "hate you",
-            "dumb bitch", "stupid bitch", "ugly bitch", "ugly whore",
-            "imbecile", "moron", "subhuman"
+            // English sexual / violent
+            "cunt", "motherfucker", "motherfucking", "cocksucker",
+            "whore", "slut", "rape", "rapist",
+            // English death / self-harm threats
+            "kill yourself", "kys", "go die", "die bitch",
+            "i hope you die", "i will kill",
+            // English extreme combos
+            "piece of shit", "fucking idiot", "fucking stupid",
+            "fucking useless", "fucking worthless", "fucking hate",
+            "i hate you", "dumb bitch", "stupid bitch", "ugly bitch",
+            "ugly whore", "subhuman", "you are nothing",
+            // Leet / obfuscated English (normalised by NormalizeLeet before matching)
+            "fck", "fuk", "fvck", "phuck", "fucc",
+            "sh1t", "sh!t", "sh!t", "s.h.i.t",
+            "b1tch", "b!tch", "bytch",
+            "a$$", "a55", "@ss",
+            "c0ck", "d1ck", "d!ck",
+            "n1gger", "n!gger",
+            // Tagalog severe
+            "putang ina", "putangina", "putang ina mo", "putangina mo",
+            "puta ka", "pakyu", "pakyo", "puta",
+            "leche ka", "letcheng", "hayop ka", "gago kang",
+            "ulol na", "tangina mo", "tangina", "tang ina",
+            "tarantado", "bobo kang", "tanga kang",
+            "siraulo", "sinungaling na puta",
+            "walang kwentang guro", "walang silbi",
+            "patay ka", "mamatay ka na",
+            // Cebuano / Bisaya severe
+            "pisting yawa", "pisting yawa ka", "yawa ka",
+            "anak sa puta", "anak ng puta",
+            "buang ka", "buang gyud", "buang kaayo",
+            "punyeta ka", "bogo ka", "amaw",
+            "animal ka", "unggoy ka", "iro ka",
+            "mamatay ka", "patay ka na",
+            "mingaw kag ulo", "wa kay pulos",
+            "pangit ka", "bastos kaayo",
+            "bilat", "pisot", "otot mo"
         };
 
-        // ── Moderate: clear profanity / aggressive ────────────────────────────
+        // ── Moderate: clear profanity / aggressive (EN / PH) ─────────────────
         private static readonly string[] ModerateWords =
         {
-            "fuck", "fucker", "fucking", "fucked", "shit", "shitty",
-            "bullshit", "asshole", "bastard", "bitch", "bitchy",
+            // English
+            "fuck", "fucker", "fucking", "fucked",
+            "shit", "shitty", "bullshit",
+            "asshole", "bastard", "bitch", "bitchy",
             "damn", "goddamn", "crap", "piss", "pissed",
-            "jackass", "dipshit", "dumbass", "jackoff", "screw you",
-            "sucks ass", "terrible teacher", "worst teacher",
-            "incompetent", "pathetic", "disgusting"
+            "jackass", "dipshit", "dumbass", "jackoff",
+            "screw you", "sucks ass",
+            "terrible teacher", "worst teacher",
+            "incompetent", "pathetic", "disgusting",
+            "cock", "dick", "penis", "vagina",
+            // Tagalog moderate
+            "gago", "gaga", "ulol", "tanga", "bobo", "boba",
+            "leche", "letch", "lintik", "bwisit", "bwiset",
+            "punyeta", "putcha", "pota", "potah",
+            "salot", "peste", "salbaheng",
+            "mukha kang", "pangit mo",
+            "walang kwenta", "walang silbi",
+            "hunghang", "inutil",
+            // Cebuano / Bisaya moderate
+            "yawa", "buang", "bogo", "inutil",
+            "sugarol", "bastos", "supak",
+            "pastilan", "atay", "atay ka",
+            "maldita", "maldito",
+            "bongga", "bungol",
+            "wa gyud ka", "di ka tinuod",
+            "lintod", "bilatan"
         };
 
-        // ── Mild: borderline / slight aggression ──────────────────────────────
+        // ── Mild: borderline / slight aggression (EN / PH) ───────────────────
         private static readonly string[] MildWords =
         {
+            // English
             "stupid", "dumb", "idiot", "loser", "jerk", "sucks",
             "awful", "horrible", "useless", "lazy", "boring",
             "waste of time", "doesn't care", "never helps",
             "always late", "doesn't teach", "bad teacher",
             "unfair", "unprofessional", "rude", "annoying", "irritating",
-            "clueless", "incompetent-ish", "not helpful"
+            "clueless", "not helpful", "terrible",
+            // Tagalog mild
+            "hilo", "tonto", "wala kang kwenta",
+            "sobrang dumb", "sobrang bobo",
+            "tamad", "tamad na guro",
+            "makulit", "walang alam", "walang magawa",
+            "hindi marunong", "hindi maayos",
+            "pabaya", "pabayaan",
+            "di marunong magturo", "di magaling",
+            // Cebuano / Bisaya mild
+            "tapulan", "tapulan kaayo",
+            "dili maayo", "dili marunong",
+            "wa nagtutudlo", "wa nahibalo",
+            "dugay kaayo", "dugay mag-explain",
+            "kanunay absent", "di mo klaro",
+            "dili klaro ang leksyon"
         };
 
         /// <summary>
         /// Classifies a comment into one of four levels.
-        /// Checks severe first; if matched, returns Severe regardless of context.
+        /// Normalises leet-speak first, then checks Severe → Moderate → Mild → Normal.
         /// </summary>
         public static CommentLevel Classify(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return CommentLevel.Normal;
 
-            string normalized = Regex.Replace(text.ToLowerInvariant(), @"\s+", " ").Trim();
+            string lower      = text.ToLowerInvariant();
+            string deSpaced   = Regex.Replace(lower, @"\s+", " ").Trim();
+            string normalized = NormalizeLeet(deSpaced);
 
-            if (ContainsAny(normalized, SevereWords))
+            if (ContainsAny(normalized, SevereWords) || ContainsAny(deSpaced, SevereWords))
                 return CommentLevel.Severe;
 
-            if (ContainsAny(normalized, ModerateWords))
+            if (ContainsAny(normalized, ModerateWords) || ContainsAny(deSpaced, ModerateWords))
                 return CommentLevel.Moderate;
 
-            if (ContainsAny(normalized, MildWords))
+            if (ContainsAny(normalized, MildWords) || ContainsAny(deSpaced, MildWords))
                 return CommentLevel.Mild;
 
             return CommentLevel.Normal;
+        }
+
+        /// <summary>
+        /// Converts common leet-speak substitutions back to plain letters so
+        /// words like "sh1t", "f@ck", "b!tch" still match the word lists.
+        /// </summary>
+        private static string NormalizeLeet(string text)
+        {
+            return text
+                .Replace("0", "o")
+                .Replace("1", "i")
+                .Replace("3", "e")
+                .Replace("4", "a")
+                .Replace("5", "s")
+                .Replace("7", "t")
+                .Replace("8", "b")
+                .Replace("@", "a")
+                .Replace("$", "s")
+                .Replace("!", "i")
+                .Replace("+", "t")
+                .Replace("(", "c")
+                .Replace("ph", "f")
+                .Replace("ck", "ck");
         }
 
         private static bool ContainsAny(string text, string[] words)
         {
             foreach (var word in words)
             {
-                // Match whole-word or phrase occurrences
-                string pattern = Regex.Escape(word);
-                if (Regex.IsMatch(text, $@"(^|\s|[^a-z]){pattern}($|\s|[^a-z])", RegexOptions.IgnoreCase)
-                    || text.Contains(word, StringComparison.OrdinalIgnoreCase))
+                if (text.Contains(word, StringComparison.OrdinalIgnoreCase))
                     return true;
             }
             return false;

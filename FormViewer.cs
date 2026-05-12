@@ -586,33 +586,49 @@ namespace EvaluaTeach
             {
                 detectedLevel = CommentClassifier.Classify(commentText);
 
-                if (detectedLevel != CommentLevel.Normal && !commentPendingEdit)
+                if (detectedLevel == CommentLevel.Mild && !commentPendingEdit)
                 {
-                    string levelName = detectedLevel.ToString();
-                    string desc = CommentClassifier.GetLevelDescription(detectedLevel);
-                    string levelColor = detectedLevel switch
-                    {
-                        CommentLevel.Mild     => "Yellow",
-                        CommentLevel.Moderate => "Orange",
-                        CommentLevel.Severe   => "Red",
-                        _                     => "Green"
-                    };
-
-                    var warningResult = MessageBox.Show(
-                        $"Your comment has been flagged:\n\n" +
-                        $"Level: {levelName.ToUpper()}\n{desc}\n\n" +
-                        "Your comment will be held for admin review before it becomes visible.\n\n" +
-                        "Click YES to edit your comment, or NO to submit it as-is (pending admin approval).",
-                        "Comment Flagged",
+                    // Courtesy nudge only — comment will be posted either way
+                    var editResult = MessageBox.Show(
+                        "Your comment may contain slightly aggressive language.\n\n" +
+                        "Please keep comments constructive and professional.\n\n" +
+                        "Click YES to edit your comment, or NO to submit it as written.\n" +
+                        "(Your comment will still be posted if you choose No.)",
+                        "Keep Comments Constructive",
                         MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Warning);
+                        MessageBoxIcon.Information);
 
-                    if (warningResult == DialogResult.Yes)
+                    if (editResult == DialogResult.Yes)
                     {
                         commentPendingEdit = true;
                         commentTextBox.Focus();
                         commentTextBox.SelectAll();
                         return;
+                    }
+                }
+                else if (detectedLevel == CommentLevel.Moderate || detectedLevel == CommentLevel.Severe)
+                {
+                    if (!commentPendingEdit)
+                    {
+                        string levelName = detectedLevel.ToString();
+                        string desc = CommentClassifier.GetLevelDescription(detectedLevel);
+
+                        var warningResult = MessageBox.Show(
+                            $"Your comment has been flagged:\n\n" +
+                            $"Level: {levelName.ToUpper()}\n{desc}\n\n" +
+                            "Your comment will be held for admin review before it becomes visible.\n\n" +
+                            "Click YES to edit your comment, or NO to submit it as-is (pending admin approval).",
+                            "Comment Flagged for Review",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Warning);
+
+                        if (warningResult == DialogResult.Yes)
+                        {
+                            commentPendingEdit = true;
+                            commentTextBox.Focus();
+                            commentTextBox.SelectAll();
+                            return;
+                        }
                     }
                 }
             }
@@ -635,7 +651,8 @@ namespace EvaluaTeach
             if (!string.IsNullOrWhiteSpace(commentText))
             {
                 detectedLevel = CommentClassifier.Classify(commentText);
-                var commentStatus = detectedLevel == CommentLevel.Normal
+                // Mild and Normal are auto-approved; Moderate/Severe go to admin review
+                var commentStatus = (detectedLevel == CommentLevel.Normal || detectedLevel == CommentLevel.Mild)
                     ? CommentStatus.Approved
                     : CommentStatus.Pending;
 
