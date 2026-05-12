@@ -5,7 +5,8 @@ namespace EvaluaTeach
     public enum UserRole
     {
         Student,
-        Admin
+        Admin,
+        Teacher
     }
 
     public static class SessionStore
@@ -28,7 +29,8 @@ namespace EvaluaTeach
             Role = role;
             IsLoggedIn = true;
 
-            ProfileStore.UpdateProfile(userName, role == UserRole.Admin ? "Administrator" : "Student", email, userId);
+            string roleMeta = role == UserRole.Admin ? "Administrator" : role == UserRole.Teacher ? "Teacher" : "Student";
+            ProfileStore.UpdateProfile(userName, roleMeta, email, userId);
             SessionUpdated?.Invoke();
         }
 

@@ -45,7 +45,6 @@ namespace EvaluaTeach
         private bool showingResponses;
         private bool showingTeachers;
         private bool showingStudents;
-        private bool showingDashboard;
         private bool showingComments;
 
         public AdminHome()
@@ -649,376 +648,422 @@ namespace EvaluaTeach
             formsListPanel.Controls.Clear();
             var forms = FormDataStore.GetAllForms().OrderByDescending(f => f.CreatedAt).ToList();
 
-            // Header stats panel
             var totalResponses = forms.Sum(f => FormDataStore.GetSubmissionCount(f.Id));
             var formsWithResponses = forms.Count(f => FormDataStore.GetSubmissionCount(f.Id) > 0);
 
+            // Header stats bar
             var statsPanel = new Panel
             {
                 BackColor = Color.White,
-                Size = new Size(formsListPanel.Width - 40, 80),
-                Margin = new Padding(0, 0, 0, 16),
-                Padding = new Padding(20)
+                Size = new Size(formsListPanel.Width - 40, 64),
+                Margin = new Padding(0, 0, 0, 12)
             };
-
-            var statsTitle = new Label
+            statsPanel.Controls.Add(new Label
             {
                 Text = "Response Overview",
-                Font = new Font("Inter", 16F, FontStyle.Bold),
+                Font = new Font("Inter", 14F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(15, 23, 42),
                 AutoSize = true,
-                Location = new Point(20, 12)
-            };
-
-            var statsSubtitle = new Label
+                Location = new Point(20, 10)
+            });
+            statsPanel.Controls.Add(new Label
             {
                 Text = $"{formsWithResponses} forms with responses  •  {totalResponses} total submissions",
                 Font = new Font("Inter", 10F),
                 ForeColor = Color.FromArgb(100, 116, 139),
                 AutoSize = true,
-                Location = new Point(20, 46)
-            };
-
-            statsPanel.Controls.Add(statsTitle);
-            statsPanel.Controls.Add(statsSubtitle);
+                Location = new Point(20, 38)
+            });
             formsListPanel.Controls.Add(statsPanel);
 
+            bool hasAny = false;
             foreach (var form in forms)
             {
                 var responses = FormDataStore.GetResponsesForForm(form.Id)
                     .OrderByDescending(r => r.SubmittedAt)
                     .ToList();
                 if (!responses.Any()) continue;
+                hasAny = true;
 
-                var section = new Panel
-                {
-                    BackColor = Color.White,
-                    Size = new Size(formsListPanel.Width - 40, 90 + (responses.Count * 200)),
-                    Margin = new Padding(0, 0, 0, 20),
-                    Padding = new Padding(24, 20, 24, 20)
-                };
-
-                // Form title with icon indicator
-                var titleContainer = new Panel
-                {
-                    BackColor = Color.Transparent,
-                    Size = new Size(section.Width - 48, 36),
-                    Location = new Point(24, 20)
-                };
-
-                var titleIndicator = new Panel
-                {
-                    BackColor = Color.FromArgb(38, 166, 91),
-                    Size = new Size(4, 24),
-                    Location = new Point(0, 6),
-                    BorderStyle = BorderStyle.None
-                };
-
-                var title = new Label
-                {
-                    Text = form.Title,
-                    Font = new Font("Inter", 14F, FontStyle.Bold),
-                    ForeColor = Color.FromArgb(15, 23, 42),
-                    AutoSize = true,
-                    Location = new Point(16, 8)
-                };
-
-                var responseCountBadge = new Panel
-                {
-                    BackColor = Color.FromArgb(220, 252, 231),
-                    Size = new Size(100, 28),
-                    Location = new Point(titleContainer.Width - 100, 4)
-                };
-
-                var responseCountLabel = new Label
-                {
-                    Text = $"{responses.Count} responses",
-                    Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                    ForeColor = Color.FromArgb(38, 166, 91),
-                    AutoSize = false,
-                    Size = new Size(100, 28),
-                    TextAlign = ContentAlignment.MiddleCenter,
-                    Location = new Point(0, 0)
-                };
-
-                responseCountBadge.Controls.Add(responseCountLabel);
-                titleContainer.Controls.Add(titleIndicator);
-                titleContainer.Controls.Add(title);
-                titleContainer.Controls.Add(responseCountBadge);
-                section.Controls.Add(titleContainer);
-
-                // Course info
-                var courseLabel = new Label
-                {
-                    Text = $"Target: {form.TargetCourse ?? "All Courses"}",
-                    Font = new Font("Inter", 9F),
-                    ForeColor = Color.FromArgb(100, 116, 139),
-                    AutoSize = true,
-                    Location = new Point(40, 56)
-                };
-                section.Controls.Add(courseLabel);
-
-                int y = 84;
-                foreach (var response in responses)
-                {
-                    var responseCard = CreateEnhancedResponseCard(form, response, section.Width - 48, y);
-                    section.Controls.Add(responseCard);
-                    y = responseCard.Bottom + 16;
-                }
-
-                section.Resize += (_, _) =>
-                {
-                    titleContainer.Width = section.Width - 48;
-                    responseCountBadge.Location = new Point(titleContainer.Width - 100, 4);
-
-                    int top = 84;
-                    foreach (Control control in section.Controls)
-                    {
-                        if (control is Panel card && card.Tag as string == "response-card")
-                        {
-                            card.Width = section.Width - 48;
-                            card.Location = new Point(24, top);
-                            top = card.Bottom + 16;
-                        }
-                    }
-                };
-
-                formsListPanel.Controls.Add(section);
+                formsListPanel.Controls.Add(CreateAccordionSection(form, responses));
             }
 
-            if (formsListPanel.Controls.Count <= 1)
+            if (!hasAny)
             {
                 var emptyPanel = new Panel
                 {
                     BackColor = Color.White,
                     Size = new Size(formsListPanel.Width - 40, 200),
-                    Margin = new Padding(0, 20, 0, 0)
+                    Margin = new Padding(0, 16, 0, 0)
                 };
-
-                var emptyIcon = new Label
-                {
-                    Text = "📋",
-                    Font = new Font("Segoe UI", 48F),
-                    AutoSize = true,
-                    Location = new Point((emptyPanel.Width - 60) / 2, 30)
-                };
-
-                var emptyLabel = new Label
+                emptyPanel.Controls.Add(new Label
                 {
                     Text = "No responses submitted yet",
                     Font = new Font("Inter", 14F, FontStyle.Bold),
                     ForeColor = Color.FromArgb(71, 85, 105),
                     AutoSize = true,
-                    Location = new Point((emptyPanel.Width - 220) / 2, 100)
-                };
-
-                var emptySubLabel = new Label
+                    Location = new Point(32, 80)
+                });
+                emptyPanel.Controls.Add(new Label
                 {
                     Text = "Student evaluations will appear here once submitted",
                     Font = new Font("Inter", 10F),
                     ForeColor = Color.FromArgb(148, 163, 184),
                     AutoSize = true,
-                    Location = new Point((emptyPanel.Width - 280) / 2, 130)
-                };
-
-                emptyPanel.Controls.Add(emptyIcon);
-                emptyPanel.Controls.Add(emptyLabel);
-                emptyPanel.Controls.Add(emptySubLabel);
+                    Location = new Point(32, 112)
+                });
                 formsListPanel.Controls.Add(emptyPanel);
             }
         }
 
-        private Panel CreateEnhancedResponseCard(EvaluationForm form, FormResponse response, int width, int top)
+        private Panel CreateAccordionSection(EvaluationForm form, List<FormResponse> responses)
         {
-            string teacherDisplay = response.TeacherId > 0 ? response.TeacherName : (string.IsNullOrWhiteSpace(form.TargetTeacher) ? "Assigned Teacher" : form.TargetTeacher);
+            bool expanded = true;
 
-            var card = new Panel
+            // Rows panel — FlowLayout so height auto-grows
+            var rowsPanel = new FlowLayoutPanel
             {
-                BackColor = Color.FromArgb(250, 251, 252),
-                Location = new Point(24, top),
-                Size = new Size(width, 180),
-                Padding = new Padding(0),
-                Tag = "response-card",
-                BorderStyle = BorderStyle.None
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.FromArgb(248, 250, 252),
+                Padding = new Padding(12, 8, 12, 8),
+                Visible = true
             };
 
-            // Top bar with accent color
-            var accentBar = new Panel
+            // Accordion header
+            var header = new Panel
+            {
+                BackColor = Color.White,
+                Height = 52,
+                Cursor = Cursors.Hand
+            };
+
+            var indicator = new Panel
             {
                 BackColor = Color.FromArgb(38, 166, 91),
-                Size = new Size(4, card.Height - 2),
-                Location = new Point(0, 1)
-            };
-
-            // Header section with student info
-            var headerPanel = new Panel
-            {
-                BackColor = Color.Transparent,
-                Size = new Size(card.Width - 24, 44),
-                Location = new Point(16, 12)
-            };
-
-            var studentAvatar = new Panel
-            {
-                BackColor = Color.FromArgb(38, 166, 91),
-                Size = new Size(32, 32),
-                Location = new Point(0, 6)
-            };
-
-            // Student initials
-            var initials = response.StudentName?.Split(' ')
-                .Where(s => !string.IsNullOrEmpty(s))
-                .Take(2)
-                .Select(s => s[0])
-                .ToArray() ?? new[] { 'S' };
-            var initialsLabel = new Label
-            {
-                Text = new string(initials).ToUpper(),
-                Font = new Font("Inter SemiBold", 11F, FontStyle.Bold),
-                ForeColor = Color.White,
-                AutoSize = false,
-                Size = new Size(32, 32),
-                TextAlign = ContentAlignment.MiddleCenter,
+                Size = new Size(4, 52),
                 Location = new Point(0, 0)
             };
-            studentAvatar.Controls.Add(initialsLabel);
 
-            var studentNameLabel = new Label
+            var formTitleLabel = new Label
             {
-                Text = response.StudentName,
-                Font = new Font("Inter SemiBold", 11F, FontStyle.Bold),
+                Text = form.Title,
+                Font = new Font("Inter SemiBold", 13F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(15, 23, 42),
                 AutoSize = true,
-                Location = new Point(44, 4)
+                Location = new Point(18, 16)
             };
 
-            var studentIdLabel = new Label
+            var countBadge = new Label
             {
-                Text = response.StudentId,
-                Font = new Font("Inter", 9F),
-                ForeColor = Color.FromArgb(100, 116, 139),
+                Text = $"{responses.Count} response{(responses.Count == 1 ? "" : "s")}",
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(38, 166, 91),
+                BackColor = Color.FromArgb(220, 252, 231),
                 AutoSize = true,
-                Location = new Point(44, 24)
+                Padding = new Padding(8, 3, 8, 3),
+                Location = new Point(18 + formTitleLabel.PreferredWidth + 12, 16)
             };
 
-            headerPanel.Controls.Add(studentAvatar);
-            headerPanel.Controls.Add(studentNameLabel);
-            headerPanel.Controls.Add(studentIdLabel);
-
-            // Submitted time badge
-            var timeBadge = new Panel
+            var chevron = new Label
             {
-                BackColor = Color.FromArgb(241, 245, 249),
-                Size = new Size(155, 28),
-                Location = new Point(headerPanel.Width - 155, 8),
+                Text = "▲",
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = Color.FromArgb(148, 163, 184),
+                AutoSize = true,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
 
-            var timeIcon = new Label
+            var sendAllBtn = new Button
             {
-                Text = "🕐",
-                Font = new Font("Segoe UI", 9F),
-                AutoSize = true,
-                Location = new Point(8, 4)
+                Text = "Send All",
+                BackColor = Color.FromArgb(38, 166, 91),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                Size = new Size(80, 30),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Cursor = Cursors.Hand
             };
 
-            var timeLabel = new Label
+            header.Controls.Add(indicator);
+            header.Controls.Add(formTitleLabel);
+            header.Controls.Add(countBadge);
+            header.Controls.Add(sendAllBtn);
+            header.Controls.Add(chevron);
+
+            header.Resize += (_, _) =>
             {
-                Text = response.SubmittedAt.ToString("MMM dd, HH:mm"),
-                Font = new Font("Inter", 9F),
-                ForeColor = Color.FromArgb(71, 85, 105),
-                AutoSize = true,
-                Location = new Point(36, 6)
+                chevron.Location = new Point(header.Width - 28, 18);
+                sendAllBtn.Location = new Point(header.Width - 120, 11);
             };
 
-            timeBadge.Controls.Add(timeIcon);
-            timeBadge.Controls.Add(timeLabel);
-            headerPanel.Controls.Add(timeBadge);
+            // Build row controls before wiring toggle so they exist
+            foreach (var response in responses)
+                rowsPanel.Controls.Add(CreateCompactResponseRow(form, response));
 
-            // Teacher being evaluated
-            var teacherPanel = new Panel
+            sendAllBtn.Click += (_, _) =>
             {
-                BackColor = Color.FromArgb(240, 253, 244),
-                Size = new Size(card.Width - 180, 32),
-                Location = new Point(16, 60)
+                int sent = 0;
+                int skipped = 0;
+                int noTeacher = 0;
+                string lastTeacherName = "";
+                foreach (var response in responses)
+                {
+                    if (response.TeacherId <= 0) { noTeacher++; continue; }
+                    if (TeacherStore.HasReportBeenSent(response.TeacherId, form.Id, response.Id)) { skipped++; continue; }
+                    decimal avgScore = 0;
+                    var ratingQs = form.Questions.Where(q => q.Type == QuestionType.Rating).ToList();
+                    if (ratingQs.Any())
+                    {
+                        var vals = ratingQs
+                            .Select(q => response.Answers.TryGetValue(q.Id, out var a) && decimal.TryParse(a, out var v) ? (decimal?)v : null)
+                            .Where(v => v.HasValue).Select(v => v!.Value).ToList();
+                        if (vals.Any()) avgScore = vals.Average();
+                    }
+                    try
+                    {
+                        TeacherStore.SaveReport(response.TeacherId, form.Id, avgScore, 1, BuildResponseReport(form, response));
+                        sent++;
+                        lastTeacherName = response.TeacherName;
+                    }
+                    catch { /* individual failures are silent in batch */ }
+                }
+
+                var msg = sent > 0
+                    ? $"Sent {sent} report{(sent == 1 ? "" : "s")}."
+                    : "No new reports to send.";
+                if (skipped > 0) msg += $"\n{skipped} already sent (skipped).";
+                if (noTeacher > 0) msg += $"\n{noTeacher} response{(noTeacher == 1 ? "" : "s")} skipped (no linked teacher).";
+
+                MessageBox.Show(msg, sent > 0 ? "Send All Complete" : "Nothing to Send",
+                    MessageBoxButtons.OK, sent > 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+
+                if (sent > 0)
+                    LoadResponsesView();
             };
 
-            var teacherIcon = new Label
+            // Toggle expand/collapse
+            EventHandler toggleHandler = (_, _) =>
             {
-                Text = "👨‍🏫",
-                Font = new Font("Segoe UI", 12F),
+                expanded = !expanded;
+                rowsPanel.Visible = expanded;
+                chevron.Text = expanded ? "▲" : "▼";
+                header.BackColor = expanded ? Color.White : Color.FromArgb(248, 250, 252);
+            };
+            header.Click += toggleHandler;
+            // Don't attach toggle to sendAllBtn — it handles its own click
+            foreach (Control c in header.Controls)
+                if (c != sendAllBtn) c.Click += toggleHandler;
+
+            // Outer wrapper stacks header + rows
+            var wrapper = new Panel
+            {
+                BackColor = Color.Transparent,
+                Margin = new Padding(0, 0, 0, 12),
                 AutoSize = true,
-                Location = new Point(10, 4)
+                AutoSizeMode = AutoSizeMode.GrowAndShrink
+            };
+
+            header.Dock = DockStyle.Top;
+            rowsPanel.Dock = DockStyle.Top;
+
+            wrapper.Controls.Add(rowsPanel);
+            wrapper.Controls.Add(header);   // added second so it docks on top
+
+            wrapper.Width = formsListPanel.Width - 40;
+            wrapper.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+
+            return wrapper;
+        }
+
+        private Panel CreateCompactResponseRow(EvaluationForm form, FormResponse response)
+        {
+            string teacherDisplay = response.TeacherId > 0
+                ? response.TeacherName
+                : (string.IsNullOrWhiteSpace(form.TargetTeacher) ? "—" : form.TargetTeacher);
+
+            string displayName = string.IsNullOrWhiteSpace(response.StudentName)
+                ? response.StudentId
+                : response.StudentName;
+
+            // Quick average rating
+            double? avgRating = null;
+            var ratingQs = form.Questions.Where(q => q.Type == QuestionType.Rating).ToList();
+            if (ratingQs.Any())
+            {
+                var vals = ratingQs
+                    .Select(q => response.Answers.TryGetValue(q.Id, out var a) && int.TryParse(a, out var v) ? (int?)v : null)
+                    .Where(v => v.HasValue).Select(v => v!.Value).ToList();
+                if (vals.Any()) avgRating = vals.Average();
+            }
+
+            var row = new Panel
+            {
+                BackColor = Color.White,
+                Size = new Size(formsListPanel.Width - 64, 72),
+                Margin = new Padding(0, 0, 0, 4),
+                Cursor = Cursors.Default,
+                Tag = "response-row"
+            };
+
+            var accentBar = new Panel
+            {
+                BackColor = Color.FromArgb(38, 166, 91),
+                Size = new Size(3, 72),
+                Location = new Point(0, 0)
+            };
+
+            // Avatar — photo if available, otherwise initials circle
+            Control avatar;
+            if (response.Avatar != null && response.Avatar.Length > 0)
+            {
+                using var ms = new System.IO.MemoryStream(response.Avatar);
+                avatar = new PictureBox
+                {
+                    Size = new Size(38, 38),
+                    Location = new Point(12, 17),
+                    SizeMode = PictureBoxSizeMode.Zoom,
+                    Image = Image.FromStream(ms),
+                    BackColor = Color.White
+                };
+            }
+            else
+            {
+                var initPanel = new Panel
+                {
+                    BackColor = Color.FromArgb(38, 166, 91),
+                    Size = new Size(38, 38),
+                    Location = new Point(12, 17)
+                };
+                var initChars = displayName.Split(' ')
+                    .Where(s => !string.IsNullOrEmpty(s)).Take(2)
+                    .Select(s => s[0]).ToArray();
+                initPanel.Controls.Add(new Label
+                {
+                    Text = new string(initChars).ToUpper(),
+                    Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                    ForeColor = Color.White,
+                    AutoSize = false,
+                    Size = new Size(38, 38),
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Location = new Point(0, 0)
+                });
+                avatar = initPanel;
+            }
+
+            var nameLabel = new Label
+            {
+                Text = displayName,
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                AutoSize = true,
+                Location = new Point(58, 10)
+            };
+
+            var idLabel = new Label
+            {
+                Text = response.StudentId,
+                Font = new Font("Inter", 8F),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                AutoSize = true,
+                Location = new Point(58, 30)
             };
 
             var teacherLabel = new Label
             {
-                Text = $"Evaluating: {teacherDisplay}",
+                Text = $"→ {teacherDisplay}",
                 Font = new Font("Inter", 9F),
-                ForeColor = Color.FromArgb(22, 101, 52),
+                ForeColor = Color.FromArgb(71, 85, 105),
                 AutoSize = true,
-                Location = new Point(36, 8)
+                Location = new Point(58, 46)
             };
 
-            teacherPanel.Controls.Add(teacherIcon);
-            teacherPanel.Controls.Add(teacherLabel);
-
-            // Answers summary - scrollable panel instead of textbox
-            var answersPanel = new Panel
+            var dateLabel = new Label
             {
-                BackColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle,
-                Size = new Size(card.Width - 160, 72),
-                Location = new Point(16, 100),
-                AutoScroll = true,
-                Padding = new Padding(12)
+                Text = response.SubmittedAt.ToString("MMM dd, yyyy  HH:mm"),
+                Font = new Font("Inter", 9F),
+                ForeColor = Color.FromArgb(148, 163, 184),
+                AutoSize = true,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
 
-            BuildAnswersSummary(form, response, answersPanel);
-
-            // Action buttons
-            var sendReportBtn = new Button
+            var ratingLabel = new Label
             {
-                Text = "📤 Send",
-                BackColor = Color.FromArgb(38, 166, 91),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                FlatAppearance = { BorderSize = 0 },
-                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                Size = new Size(90, 32),
-                Location = new Point(card.Width - 106, 100),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Cursor = Cursors.Hand
+                Text = avgRating.HasValue ? $"★ {avgRating.Value:0.0}" : "",
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(234, 179, 8),
+                AutoSize = true,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
-            sendReportBtn.Click += (_, _) => SendReportToTeacher(form, response, BuildResponseReport(form, response));
-            sendReportBtn.MouseEnter += (_, _) => { sendReportBtn.BackColor = Color.FromArgb(22, 163, 74); };
-            sendReportBtn.MouseLeave += (_, _) => { sendReportBtn.BackColor = Color.FromArgb(38, 166, 91); };
 
-            var viewDetailsBtn = new Button
+            var detailsBtn = new Button
             {
-                Text = "� Details",
+                Text = "Details",
                 BackColor = Color.FromArgb(240, 253, 244),
                 ForeColor = Color.FromArgb(22, 101, 52),
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                Size = new Size(90, 32),
-                Location = new Point(card.Width - 106, 138),
+                Size = new Size(70, 28),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Cursor = Cursors.Hand
             };
-            viewDetailsBtn.Click += (_, _) => ShowResponseDetails(form, response);
-            viewDetailsBtn.MouseEnter += (_, _) => { viewDetailsBtn.BackColor = Color.FromArgb(220, 252, 231); };
-            viewDetailsBtn.MouseLeave += (_, _) => { viewDetailsBtn.BackColor = Color.FromArgb(240, 253, 244); };
+            detailsBtn.Click += (_, _) => ShowResponseDetails(form, response);
 
-            card.Controls.Add(accentBar);
-            card.Controls.Add(headerPanel);
-            card.Controls.Add(teacherPanel);
-            card.Controls.Add(answersPanel);
-            card.Controls.Add(sendReportBtn);
-            card.Controls.Add(viewDetailsBtn);
+            bool alreadySent = response.TeacherId > 0 &&
+                TeacherStore.HasReportBeenSent(response.TeacherId, form.Id, response.Id);
 
-            return card;
+            var sendBtn = new Button
+            {
+                Text = alreadySent ? "Sent" : "Send",
+                BackColor = alreadySent ? Color.FromArgb(148, 163, 184) : Color.FromArgb(38, 166, 91),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
+                Size = new Size(60, 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Cursor = alreadySent ? Cursors.Default : Cursors.Hand,
+                Enabled = !alreadySent
+            };
+            sendBtn.Click += (_, _) => SendReportToTeacher(form, response, BuildResponseReport(form, response));
+
+            row.Controls.Add(accentBar);
+            row.Controls.Add(avatar);
+            row.Controls.Add(nameLabel);
+            row.Controls.Add(idLabel);
+            row.Controls.Add(teacherLabel);
+            row.Controls.Add(dateLabel);
+            row.Controls.Add(ratingLabel);
+            row.Controls.Add(detailsBtn);
+            row.Controls.Add(sendBtn);
+
+            row.Resize += (_, _) =>
+            {
+                accentBar.Size       = new Size(3, row.Height);
+                dateLabel.Location   = new Point(row.Width - 420, 27);
+                ratingLabel.Location = new Point(row.Width - 260, 27);
+                detailsBtn.Location  = new Point(row.Width - 160, 22);
+                sendBtn.Location     = new Point(row.Width - 80, 22);
+            };
+
+            // trigger initial layout
+            int rowW = formsListPanel.Width - 64;
+            dateLabel.Location   = new Point(rowW - 420, 27);
+            ratingLabel.Location = new Point(rowW - 260, 27);
+            detailsBtn.Location  = new Point(rowW - 160, 22);
+            sendBtn.Location     = new Point(rowW - 80, 22);
+
+            return row;
+        }
+
+        private Panel CreateEnhancedResponseCard(EvaluationForm form, FormResponse response, int width, int top)
+        {
+            return CreateCompactResponseRow(form, response);
         }
 
         private void BuildAnswersSummary(EvaluationForm form, FormResponse response, Panel container)
@@ -1209,6 +1254,97 @@ namespace EvaluaTeach
                 y += 115;
             }
 
+            // Additional comment section
+            var comment = FormDataStore.GetCommentForSubmission(response.Id);
+            if (comment != null)
+            {
+                var commentSectionPanel = new Panel
+                {
+                    Size = new Size(600, 110),
+                    Location = new Point(32, y),
+                    BackColor = Color.FromArgb(248, 250, 252),
+                    BorderStyle = BorderStyle.FixedSingle
+                };
+
+                Color levelBg = comment.SystemLevel switch
+                {
+                    CommentLevel.Severe   => Color.FromArgb(254, 226, 226),
+                    CommentLevel.Moderate => Color.FromArgb(255, 237, 213),
+                    CommentLevel.Mild     => Color.FromArgb(254, 252, 232),
+                    _                     => Color.FromArgb(220, 252, 231)
+                };
+                Color levelFg = comment.SystemLevel switch
+                {
+                    CommentLevel.Severe   => Color.FromArgb(153, 27, 27),
+                    CommentLevel.Moderate => Color.FromArgb(154, 52, 18),
+                    CommentLevel.Mild     => Color.FromArgb(133, 77, 14),
+                    _                     => Color.FromArgb(22, 101, 52)
+                };
+                Color statusFg = comment.Status switch
+                {
+                    CommentStatus.Approved => Color.FromArgb(22, 101, 52),
+                    CommentStatus.Rejected => Color.FromArgb(153, 27, 27),
+                    _                      => Color.FromArgb(154, 52, 18)
+                };
+                Color statusBg = comment.Status switch
+                {
+                    CommentStatus.Approved => Color.FromArgb(220, 252, 231),
+                    CommentStatus.Rejected => Color.FromArgb(254, 226, 226),
+                    _                      => Color.FromArgb(255, 247, 237)
+                };
+
+                var commentHeaderLabel = new Label
+                {
+                    Text = "Additional Comment",
+                    Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(15, 23, 42),
+                    AutoSize = true,
+                    Location = new Point(16, 12)
+                };
+
+                var levelBadge = new Label
+                {
+                    Text = comment.SystemLevel.ToString(),
+                    Font = new Font("Inter SemiBold", 8F, FontStyle.Bold),
+                    ForeColor = levelFg,
+                    BackColor = levelBg,
+                    AutoSize = true,
+                    Padding = new Padding(6, 2, 6, 2),
+                    Location = new Point(152, 10)
+                };
+
+                var statusBadge = new Label
+                {
+                    Text = comment.Status.ToString(),
+                    Font = new Font("Inter SemiBold", 8F, FontStyle.Bold),
+                    ForeColor = statusFg,
+                    BackColor = statusBg,
+                    AutoSize = true,
+                    Padding = new Padding(6, 2, 6, 2),
+                    Location = new Point(220, 10)
+                };
+
+                var commentTextBox = new TextBox
+                {
+                    Text = comment.CommentText,
+                    Multiline = true,
+                    ReadOnly = true,
+                    ScrollBars = ScrollBars.Vertical,
+                    Font = new Font("Inter", 10F),
+                    BackColor = Color.White,
+                    BorderStyle = BorderStyle.None,
+                    Location = new Point(16, 40),
+                    Size = new Size(568, 60)
+                };
+
+                commentSectionPanel.Controls.Add(commentHeaderLabel);
+                commentSectionPanel.Controls.Add(levelBadge);
+                commentSectionPanel.Controls.Add(statusBadge);
+                commentSectionPanel.Controls.Add(commentTextBox);
+                scrollPanel.Controls.Add(commentSectionPanel);
+                y += 125;
+            }
+
             detailsForm.Controls.Add(scrollPanel);
             detailsForm.ShowDialog(this);
         }
@@ -1242,6 +1378,7 @@ namespace EvaluaTeach
             string teacherDisplay = response.TeacherId > 0 ? response.TeacherName : (string.IsNullOrWhiteSpace(form.TargetTeacher) ? "Assigned Teacher" : form.TargetTeacher);
             var lines = new List<string>
             {
+                $"SubmissionID:{response.Id}",
                 $"Teacher: {teacherDisplay}",
                 $"Department: {(!string.IsNullOrWhiteSpace(form.TargetCourse) ? form.TargetCourse : "All")}",
                 "------------------------------"
@@ -1259,13 +1396,42 @@ namespace EvaluaTeach
 
         private void SendReportToTeacher(EvaluationForm form, FormResponse response, string reportBody)
         {
-            string teacher = response.TeacherId > 0 ? response.TeacherName : (string.IsNullOrWhiteSpace(form.TargetTeacher) ? "Assigned Teacher" : form.TargetTeacher);
-            int reportLength = reportBody.Length;
-            MessageBox.Show(
-                $"Report prepared for {teacher}.\n\nStudent: {response.StudentName}\nForm: {form.Title}\nReport size: {reportLength} characters\n\nIn this build, reports are generated and ready to send.",
-                "Report Ready",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+            if (response.TeacherId <= 0)
+            {
+                MessageBox.Show("This response has no linked teacher. Assign a teacher to the evaluation form first.", "Cannot Send", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (TeacherStore.HasReportBeenSent(response.TeacherId, form.Id, response.Id))
+            {
+                MessageBox.Show("This report has already been sent to the teacher.", "Already Sent", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            // Compute average rating score
+            decimal avgScore = 0;
+            var ratingQs = form.Questions.Where(q => q.Type == QuestionType.Rating).ToList();
+            if (ratingQs.Any())
+            {
+                var vals = ratingQs
+                    .Select(q => response.Answers.TryGetValue(q.Id, out var a) && decimal.TryParse(a, out var v) ? (decimal?)v : null)
+                    .Where(v => v.HasValue).Select(v => v!.Value).ToList();
+                if (vals.Any()) avgScore = vals.Average();
+            }
+
+            try
+            {
+                TeacherStore.SaveReport(response.TeacherId, form.Id, avgScore, 1, reportBody);
+                MessageBox.Show(
+                    $"Report sent to {response.TeacherName}.\n\nStudent: {response.StudentName}\nForm: {form.Title}",
+                    "Report Sent",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to send report: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void LoadCommentsView(bool showAll)
@@ -2586,7 +2752,6 @@ namespace EvaluaTeach
 
         private void ShowStudentManagement()
         {
-            showingDashboard = false;
             showingResponses = false;
             showingTeachers = false;
             showingStudents = true;

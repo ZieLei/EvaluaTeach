@@ -221,7 +221,7 @@ namespace EvaluaTeach
                 EnsureDefaultUsers();
 
                 // Authenticate against database - auto-detect admin or student
-                var (isValid, isAdmin, numericId, name, email, course) = AuthenticateUser(userId, password);
+                var (isValid, detectedRole, numericId, name, email, course) = AuthenticateUser(userId, password);
 
                 if (!isValid)
                 {
@@ -229,23 +229,28 @@ namespace EvaluaTeach
                     return;
                 }
 
-                UserRole role = isAdmin ? UserRole.Admin : UserRole.Student;
-                string meta = isAdmin ? "Administrator" : $"Student {course}";
+                string meta = detectedRole == UserRole.Admin ? "Administrator"
+                            : detectedRole == UserRole.Teacher ? "Teacher"
+                            : $"Student {course}";
 
-                SessionStore.Login(userId, numericId, name, email, role);
+                SessionStore.Login(userId, numericId, name, email, detectedRole);
                 ProfileStore.UpdateProfile(name, meta, email, userId, numericId);
 
                 // Load avatar from database for students
-                if (!isAdmin && numericId.HasValue)
+                if (detectedRole == UserRole.Student && numericId.HasValue)
                 {
                     ProfileStore.LoadAvatarFromDatabase(numericId.Value);
                 }
 
                 FormDataStore.SeedSampleData();
 
-                if (isAdmin)
+                if (detectedRole == UserRole.Admin)
                 {
                     Program.NavigateTo(new AdminHome());
+                }
+                else if (detectedRole == UserRole.Teacher)
+                {
+                    Program.NavigateTo(new TeacherHome());
                 }
                 else
                 {
@@ -310,16 +315,29 @@ namespace EvaluaTeach
                 insertStudent2.Parameters.AddWithValue("@password", HashPassword("student123"));
                 insertStudent2.ExecuteNonQuery();
             }
+
+            // Check if default teacher exists
+            var teacherCmd2 = new MySqlCommand("SELECT COUNT(*) FROM Teacher WHERE Email = 'teacher@evaluateach.edu'", conn);
+            var teacherCount = Convert.ToInt32(teacherCmd2.ExecuteScalar());
+
+            if (teacherCount == 0)
+            {
+                var insertTeacher = new MySqlCommand(@"
+                    INSERT INTO Teacher (FirstName, LastName, Email, Department, Password, CreatedAt)
+                    VALUES ('Default', 'Teacher', 'teacher@evaluateach.edu', 'General', @password, NOW())", conn);
+                insertTeacher.Parameters.AddWithValue("@password", HashPassword("teacher123"));
+                insertTeacher.ExecuteNonQuery();
+            }
         }
 
-        private (bool isValid, bool isAdmin, int? numericId, string name, string email, string course) AuthenticateUser(string userId, string password)
+        private (bool isValid, UserRole role, int? numericId, string name, string email, string course) AuthenticateUser(string userId, string password)
         {
             using var conn = Database.GetConnection();
             conn.Open();
 
             string hashedPassword = HashPassword(password);
 
-            // First, try to find admin by AdminID or Email
+            // 1. Try Admin
             var adminCmd = new MySqlCommand(@"
                 SELECT AdminID, FirstName, LastName, Email
                 FROM Admin
@@ -335,11 +353,31 @@ namespace EvaluaTeach
                     int adminId = adminReader.GetInt32("AdminID");
                     string name = $"{adminReader.GetString("FirstName")} {adminReader.GetString("LastName")}";
                     string email = adminReader.GetString("Email");
-                    return (true, true, adminId, name, email, "");
+                    return (true, UserRole.Admin, adminId, name, email, "");
                 }
             }
 
-            // If not admin, try to find student by IDNumber
+            // 2. Try Teacher
+            var teacherCmd = new MySqlCommand(@"
+                SELECT TeacherID, FirstName, LastName, Email
+                FROM Teacher
+                WHERE (Email = @id OR CAST(TeacherID AS CHAR) = @id) AND Password = @password
+                LIMIT 1", conn);
+            teacherCmd.Parameters.AddWithValue("@id", userId);
+            teacherCmd.Parameters.AddWithValue("@password", hashedPassword);
+
+            using (var teacherReader = teacherCmd.ExecuteReader())
+            {
+                if (teacherReader.Read())
+                {
+                    int teacherId = teacherReader.GetInt32("TeacherID");
+                    string name = $"{teacherReader.GetString("FirstName")} {teacherReader.GetString("LastName")}";
+                    string email = teacherReader.IsDBNull(teacherReader.GetOrdinal("Email")) ? "" : teacherReader.GetString("Email");
+                    return (true, UserRole.Teacher, teacherId, name, email, "");
+                }
+            }
+
+            // 3. Try Student
             var studentCmd = new MySqlCommand(@"
                 SELECT StudentID, FirstName, LastName, Email, Course
                 FROM Student
@@ -356,11 +394,11 @@ namespace EvaluaTeach
                     string name = $"{studentReader.GetString("FirstName")} {studentReader.GetString("LastName")}";
                     string email = studentReader.GetString("Email");
                     string course = studentReader.GetString("Course");
-                    return (true, false, studentId, name, email, course);
+                    return (true, UserRole.Student, studentId, name, email, course);
                 }
             }
 
-            return (false, false, null, "", "", "");
+            return (false, UserRole.Student, null, "", "", "");
         }
     }
 }

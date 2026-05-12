@@ -586,14 +586,14 @@ namespace EvaluaTeach
             {
                 detectedLevel = CommentClassifier.Classify(commentText);
 
-                if (detectedLevel == CommentLevel.Mild && !commentPendingEdit)
+                if (detectedLevel == CommentLevel.Mild)
                 {
-                    // Courtesy nudge only — comment will be posted either way
+                    // Courtesy nudge — repeats every time until comment is clean or user accepts
                     var editResult = MessageBox.Show(
                         "Your comment may contain slightly aggressive language.\n\n" +
                         "Please keep comments constructive and professional.\n\n" +
                         "Click YES to edit your comment, or NO to submit it as written.\n" +
-                        "(Your comment will still be posted if you choose No.)",
+                        "(Your comment will still be held for review if you choose No.)",
                         "Keep Comments Constructive",
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Information);
@@ -608,27 +608,24 @@ namespace EvaluaTeach
                 }
                 else if (detectedLevel == CommentLevel.Moderate || detectedLevel == CommentLevel.Severe)
                 {
-                    if (!commentPendingEdit)
+                    string levelName = detectedLevel.ToString();
+                    string desc = CommentClassifier.GetLevelDescription(detectedLevel);
+
+                    var warningResult = MessageBox.Show(
+                        $"Your comment has been flagged:\n\n" +
+                        $"Level: {levelName.ToUpper()}\n{desc}\n\n" +
+                        "Your comment will be held for admin review before it becomes visible.\n\n" +
+                        "Click YES to edit your comment, or NO to submit it as-is (pending admin approval).",
+                        "Comment Flagged for Review",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning);
+
+                    if (warningResult == DialogResult.Yes)
                     {
-                        string levelName = detectedLevel.ToString();
-                        string desc = CommentClassifier.GetLevelDescription(detectedLevel);
-
-                        var warningResult = MessageBox.Show(
-                            $"Your comment has been flagged:\n\n" +
-                            $"Level: {levelName.ToUpper()}\n{desc}\n\n" +
-                            "Your comment will be held for admin review before it becomes visible.\n\n" +
-                            "Click YES to edit your comment, or NO to submit it as-is (pending admin approval).",
-                            "Comment Flagged for Review",
-                            MessageBoxButtons.YesNo,
-                            MessageBoxIcon.Warning);
-
-                        if (warningResult == DialogResult.Yes)
-                        {
-                            commentPendingEdit = true;
-                            commentTextBox.Focus();
-                            commentTextBox.SelectAll();
-                            return;
-                        }
+                        commentPendingEdit = true;
+                        commentTextBox.Focus();
+                        commentTextBox.SelectAll();
+                        return;
                     }
                 }
             }
@@ -651,8 +648,8 @@ namespace EvaluaTeach
             if (!string.IsNullOrWhiteSpace(commentText))
             {
                 detectedLevel = CommentClassifier.Classify(commentText);
-                // Mild and Normal are auto-approved; Moderate/Severe go to admin review
-                var commentStatus = (detectedLevel == CommentLevel.Normal || detectedLevel == CommentLevel.Mild)
+                // Only Normal is auto-approved; Mild/Moderate/Severe go to admin review
+                var commentStatus = detectedLevel == CommentLevel.Normal
                     ? CommentStatus.Approved
                     : CommentStatus.Pending;
 

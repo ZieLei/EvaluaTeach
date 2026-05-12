@@ -47,6 +47,7 @@ namespace EvaluaTeach
         public string TeacherName { get; set; } = string.Empty;
         public string StudentId { get; set; } = string.Empty;
         public string StudentName { get; set; } = string.Empty;
+        public byte[]? Avatar { get; set; }
         public DateTime SubmittedAt { get; set; } = DateTime.Now;
         public Dictionary<int, string> Answers { get; set; } = new();
     }
@@ -64,6 +65,19 @@ namespace EvaluaTeach
         Pending,
         Approved,
         Rejected
+    }
+
+    public class TeacherReport
+    {
+        public int ReportID { get; set; }
+        public int TeacherID { get; set; }
+        public string TeacherName { get; set; } = string.Empty;
+        public int EvaluationID { get; set; }
+        public string FormTitle { get; set; } = string.Empty;
+        public DateTime SubmissionDate { get; set; }
+        public decimal AverageScore { get; set; }
+        public int ResponseCount { get; set; }
+        public string ReportData { get; set; } = string.Empty;
     }
 
     public class FormComment

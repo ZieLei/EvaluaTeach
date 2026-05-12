@@ -372,9 +372,12 @@ namespace EvaluaTeach
 
             var cmd = new MySqlCommand(@"
                 SELECT fs.SubmissionID, fs.StudentIDNumber, fs.EvaluationID, fs.TeacherID, fs.SubmittedAt,
-                       CONCAT(t.FirstName, ' ', t.LastName) as TeacherName
+                       CONCAT(t.FirstName, ' ', t.LastName) as TeacherName,
+                       CONCAT(s.FirstName, ' ', s.LastName) as StudentName,
+                       s.Avatar
                 FROM FormSubmission fs
                 LEFT JOIN Teacher t ON fs.TeacherID = t.TeacherID
+                LEFT JOIN student s ON s.IDNumber = fs.StudentIDNumber
                 WHERE fs.EvaluationID = @formId", conn);
             cmd.Parameters.AddWithValue("@formId", formId);
 
@@ -384,6 +387,8 @@ namespace EvaluaTeach
                 {
                     var teacherId = reader.IsDBNull(reader.GetOrdinal("TeacherID")) ? 0 : reader.GetInt32("TeacherID");
                     var teacherName = reader.IsDBNull(reader.GetOrdinal("TeacherName")) ? "" : reader.GetString("TeacherName");
+                    var studentName = reader.IsDBNull(reader.GetOrdinal("StudentName")) ? "" : reader.GetString("StudentName");
+                    var avatar = reader.IsDBNull(reader.GetOrdinal("Avatar")) ? null : (byte[])reader["Avatar"];
                     responses.Add(new FormResponse
                     {
                         Id = reader.GetInt32("SubmissionID"),
@@ -391,6 +396,8 @@ namespace EvaluaTeach
                         TeacherId = teacherId,
                         TeacherName = teacherName,
                         StudentId = reader.GetString("StudentIDNumber"),
+                        StudentName = studentName,
+                        Avatar = avatar,
                         SubmittedAt = reader.GetDateTime("SubmittedAt"),
                         Answers = new Dictionary<int, string>()
                     });
@@ -526,6 +533,51 @@ namespace EvaluaTeach
             cmd.ExecuteNonQuery();
 
             CommentsUpdated?.Invoke();
+        }
+
+        public static FormComment? GetCommentForSubmission(int submissionId)
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                SELECT c.CommentID, c.StudentID, c.Content, c.DateSubmitted, c.Status,
+                       c.SubmissionID, c.FormTitle, c.SystemLevel, c.AdminLevel,
+                       c.ReviewedAt, c.ReviewedBy,
+                       s.IDNumber, s.FirstName, s.LastName, s.Email
+                FROM comment c
+                LEFT JOIN student s ON s.StudentID = c.StudentID
+                WHERE c.SubmissionID = @subId
+                LIMIT 1", conn);
+            cmd.Parameters.AddWithValue("@subId", submissionId);
+
+            using var reader = cmd.ExecuteReader();
+            if (!reader.Read()) return null;
+
+            var adminLevelStr = reader.IsDBNull(reader.GetOrdinal("AdminLevel")) ? null : reader.GetString("AdminLevel");
+            var firstName = reader.IsDBNull(reader.GetOrdinal("FirstName")) ? "" : reader.GetString("FirstName");
+            var lastName  = reader.IsDBNull(reader.GetOrdinal("LastName"))  ? "" : reader.GetString("LastName");
+            var idNumber  = reader.IsDBNull(reader.GetOrdinal("IDNumber"))  ? "" : reader.GetString("IDNumber");
+            var email     = reader.IsDBNull(reader.GetOrdinal("Email"))     ? "" : reader.GetString("Email");
+            int? dbStudentId = reader.IsDBNull(reader.GetOrdinal("StudentID")) ? null : reader.GetInt32("StudentID");
+
+            return new FormComment
+            {
+                Id = reader.GetInt32("CommentID"),
+                StudentDbId = dbStudentId,
+                SubmissionId = submissionId,
+                StudentId = idNumber,
+                StudentName = $"{firstName} {lastName}".Trim(),
+                StudentEmail = email,
+                FormTitle = reader.IsDBNull(reader.GetOrdinal("FormTitle")) ? "" : reader.GetString("FormTitle"),
+                CommentText = reader.IsDBNull(reader.GetOrdinal("Content")) ? "" : reader.GetString("Content"),
+                SystemLevel = reader.IsDBNull(reader.GetOrdinal("SystemLevel")) ? CommentLevel.Normal : ParseCommentLevel(reader.GetString("SystemLevel")),
+                AdminLevel = adminLevelStr == null ? null : ParseCommentLevel(adminLevelStr),
+                Status = ParseCommentStatus(reader.GetString("Status")),
+                SubmittedAt = reader.IsDBNull(reader.GetOrdinal("DateSubmitted")) ? DateTime.Now : reader.GetDateTime("DateSubmitted"),
+                ReviewedAt = reader.IsDBNull(reader.GetOrdinal("ReviewedAt")) ? null : reader.GetDateTime("ReviewedAt"),
+                ReviewedBy = reader.IsDBNull(reader.GetOrdinal("ReviewedBy")) ? "" : reader.GetString("ReviewedBy")
+            };
         }
 
         public static List<FormComment> GetPendingComments()

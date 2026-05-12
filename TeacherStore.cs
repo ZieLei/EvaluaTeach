@@ -164,11 +164,167 @@ namespace EvaluaTeach
             return teachers;
         }
 
+        public static bool HasReportBeenSent(int teacherId, int evaluationId, int submissionId)
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                SELECT COUNT(*) FROM report
+                WHERE TeacherID = @teacherId
+                  AND EvaluationID = @evaluationId
+                  AND ReportData LIKE @submissionPattern", conn);
+
+            cmd.Parameters.AddWithValue("@teacherId", teacherId);
+            cmd.Parameters.AddWithValue("@evaluationId", evaluationId);
+            cmd.Parameters.AddWithValue("@submissionPattern", $"%SubmissionID:{submissionId}%");
+
+            return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+        }
+
+        public static void SaveReport(int teacherId, int evaluationId, decimal avgScore, int responseCount, string reportData)
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                INSERT INTO report (TeacherID, EvaluationID, SubmissionDate, AverageScore, ResponseCount, ReportData)
+                VALUES (@teacherId, @evaluationId, NOW(), @avgScore, @responseCount, @reportData)", conn);
+
+            cmd.Parameters.AddWithValue("@teacherId", teacherId);
+            cmd.Parameters.AddWithValue("@evaluationId", evaluationId);
+            cmd.Parameters.AddWithValue("@avgScore", avgScore);
+            cmd.Parameters.AddWithValue("@responseCount", responseCount);
+            var rdParam = cmd.Parameters.Add("@reportData", MySqlDbType.LongText);
+            rdParam.Value = reportData ?? string.Empty;
+
+            cmd.ExecuteNonQuery();
+        }
+
+        public static List<TeacherReport> GetReportsForTeacher(int teacherId)
+        {
+            var reports = new List<TeacherReport>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                SELECT r.ReportID, r.TeacherID, r.EvaluationID, r.SubmissionDate,
+                       r.AverageScore, r.ResponseCount, r.ReportData,
+                       COALESCE(ef.Title, '') AS FormTitle
+                FROM report r
+                LEFT JOIN EvaluationForm ef ON ef.EvaluationID = r.EvaluationID
+                WHERE r.TeacherID = @teacherId
+                ORDER BY r.SubmissionDate DESC", conn);
+
+            cmd.Parameters.AddWithValue("@teacherId", teacherId);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                reports.Add(new TeacherReport
+                {
+                    ReportID = reader.GetInt32("ReportID"),
+                    TeacherID = reader.GetInt32("TeacherID"),
+                    EvaluationID = reader.GetInt32("EvaluationID"),
+                    FormTitle = reader.GetString("FormTitle"),
+                    SubmissionDate = reader.GetDateTime("SubmissionDate"),
+                    AverageScore = reader.IsDBNull(reader.GetOrdinal("AverageScore")) ? 0 : reader.GetDecimal("AverageScore"),
+                    ResponseCount = reader.IsDBNull(reader.GetOrdinal("ResponseCount")) ? 0 : reader.GetInt32("ResponseCount"),
+                    ReportData = reader.IsDBNull(reader.GetOrdinal("ReportData")) ? "" : reader.GetString("ReportData")
+                });
+            }
+
+            return reports;
+        }
+
+        public static List<TeacherReport> GetAllReports()
+        {
+            var reports = new List<TeacherReport>();
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                SELECT r.ReportID, r.TeacherID, r.EvaluationID, r.SubmissionDate,
+                       r.AverageScore, r.ResponseCount, r.ReportData,
+                       COALESCE(ef.Title, '') AS FormTitle,
+                       CONCAT(t.FirstName, ' ', t.LastName) AS TeacherName
+                FROM report r
+                LEFT JOIN EvaluationForm ef ON ef.EvaluationID = r.EvaluationID
+                LEFT JOIN Teacher t ON t.TeacherID = r.TeacherID
+                ORDER BY r.SubmissionDate DESC", conn);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                reports.Add(new TeacherReport
+                {
+                    ReportID       = reader.GetInt32("ReportID"),
+                    TeacherID      = reader.GetInt32("TeacherID"),
+                    TeacherName    = reader.IsDBNull(reader.GetOrdinal("TeacherName")) ? "" : reader.GetString("TeacherName"),
+                    EvaluationID   = reader.GetInt32("EvaluationID"),
+                    FormTitle      = reader.GetString("FormTitle"),
+                    SubmissionDate = reader.GetDateTime("SubmissionDate"),
+                    AverageScore   = reader.IsDBNull(reader.GetOrdinal("AverageScore")) ? 0 : reader.GetDecimal("AverageScore"),
+                    ResponseCount  = reader.IsDBNull(reader.GetOrdinal("ResponseCount")) ? 0 : reader.GetInt32("ResponseCount"),
+                    ReportData     = reader.IsDBNull(reader.GetOrdinal("ReportData")) ? "" : reader.GetString("ReportData")
+                });
+            }
+
+            return reports;
+        }
+
+        public static void DeleteReport(int reportId)
+        {
+            using var conn = Database.GetConnection();
+            conn.Open();
+            var cmd = new MySqlCommand("DELETE FROM report WHERE ReportID = @id", conn);
+            cmd.Parameters.AddWithValue("@id", reportId);
+            cmd.ExecuteNonQuery();
+        }
+
+        public static bool AuthenticateTeacher(string identifier, string hashedPassword, out Teacher? teacher)
+        {
+            teacher = null;
+            using var conn = Database.GetConnection();
+            conn.Open();
+
+            var cmd = new MySqlCommand(@"
+                SELECT TeacherID, FirstName, LastName, Email, Department, Section, Course, YearLevel, Subjects
+                FROM Teacher
+                WHERE (Email = @id OR CAST(TeacherID AS CHAR) = @id) AND Password = @password
+                LIMIT 1", conn);
+
+            cmd.Parameters.AddWithValue("@id", identifier);
+            cmd.Parameters.AddWithValue("@password", hashedPassword);
+
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                var subjectsStr = reader.IsDBNull(reader.GetOrdinal("Subjects")) ? "" : reader.GetString("Subjects");
+                teacher = new Teacher
+                {
+                    TeacherID = reader.GetInt32("TeacherID"),
+                    FirstName = reader.GetString("FirstName"),
+                    LastName = reader.GetString("LastName"),
+                    Email = reader.IsDBNull(reader.GetOrdinal("Email")) ? "" : reader.GetString("Email"),
+                    Department = reader.IsDBNull(reader.GetOrdinal("Department")) ? "" : reader.GetString("Department"),
+                    Section = reader.IsDBNull(reader.GetOrdinal("Section")) ? "" : reader.GetString("Section"),
+                    Course = reader.IsDBNull(reader.GetOrdinal("Course")) ? "" : reader.GetString("Course"),
+                    YearLevel = reader.IsDBNull(reader.GetOrdinal("YearLevel")) ? "" : reader.GetString("YearLevel"),
+                    Subjects = string.IsNullOrEmpty(subjectsStr) ? new List<string>() : subjectsStr.Split(',').Select(s => s.Trim()).ToList()
+                };
+                return true;
+            }
+            return false;
+        }
+
         private static string HashPassword(string password)
         {
             using var sha256 = SHA256.Create();
             var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
             return Convert.ToBase64String(bytes);
         }
+
+        public static string HashPasswordPublic(string password) => HashPassword(password);
     }
 }
