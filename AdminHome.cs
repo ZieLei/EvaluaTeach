@@ -874,13 +874,14 @@ namespace EvaluaTeach
                     .ToList();
             }
 
-            // Group by teacher
-            var teacherGroups = allReports
-                .GroupBy(r => r.TeacherID)
+            // Group by teacher-subject combination (AssignmentID)
+            var teacherSubjectGroups = allReports
+                .GroupBy(r => new { r.TeacherID, r.AssignmentID })
                 .OrderBy(g => g.First().TeacherName)
+                .ThenBy(g => g.First().SubjectDisplay)
                 .ToList();
 
-            int teacherCount = teacherGroups.Count;
+            int cardCount = teacherSubjectGroups.Count;
             int formCount = allReports.Select(r => new { r.TeacherID, r.EvaluationID }).Distinct().Count();
 
             // Header stats bar
@@ -900,9 +901,9 @@ namespace EvaluaTeach
             });
             statsPanel.Controls.Add(new Label
             {
-                Text = teacherCount == 0
+                Text = cardCount == 0
                     ? "No reports have been sent yet"
-                    : $"{teacherCount} teacher{(teacherCount == 1 ? "" : "s")}  ·  {formCount} form evaluation{(formCount == 1 ? "" : "s")}",
+                    : $"{cardCount} report card{(cardCount == 1 ? "" : "s")}  ·  {formCount} form evaluation{(formCount == 1 ? "" : "s")}",
                 Font = new Font("Inter", 10F),
                 ForeColor = Color.FromArgb(100, 116, 139),
                 AutoSize = true,
@@ -910,7 +911,7 @@ namespace EvaluaTeach
             });
             reportsListPanel.Controls.Add(statsPanel);
 
-            if (!teacherGroups.Any())
+            if (!teacherSubjectGroups.Any())
             {
                 var emptyPanel = new Panel
                 {
@@ -930,9 +931,9 @@ namespace EvaluaTeach
                 return;
             }
 
-            foreach (var group in teacherGroups)
+            foreach (var group in teacherSubjectGroups)
             {
-                // Per teacher: group by form, average the scores
+                // Per teacher-subject: group by form, average the scores
                 var formRows = group
                     .GroupBy(r => r.EvaluationID)
                     .Select(fg => (
@@ -948,9 +949,14 @@ namespace EvaluaTeach
                     .OrderByDescending(f => f.LatestDate)
                     .ToList();
 
-                int teacherID = group.Key;
+                int teacherID = group.Key.TeacherID;
                 string teacherName = group.First().TeacherName;
-                var accordion = CreateTeacherReportAccordion(teacherID, teacherName, formRows);
+                string subjectDisplay = group.First().SubjectDisplay;
+                string cardTitle = string.IsNullOrEmpty(subjectDisplay)
+                    ? teacherName
+                    : $"{teacherName}  -  {subjectDisplay}";
+                
+                var accordion = CreateTeacherReportAccordion(teacherID, cardTitle, formRows);
                 reportsListPanel.Controls.Add(accordion);
             }
         }
@@ -1864,7 +1870,7 @@ namespace EvaluaTeach
                     }
                     try
                     {
-                        TeacherStore.SaveReport(response.TeacherId, form.Id, avgScore, 1, BuildResponseReport(form, response));
+                        TeacherStore.SaveReport(response.TeacherId, form.Id, response.AssignmentId, avgScore, 1, BuildResponseReport(form, response));
                         sent++;
                         lastTeacherName = response.TeacherName;
                     }
@@ -1942,7 +1948,7 @@ namespace EvaluaTeach
             var row = new Panel
             {
                 BackColor = Color.White,
-                Size = new Size(formsListPanel.Width - 64, 72),
+                Size = new Size(formsListPanel.Width - 64, 88),
                 Margin = new Padding(0, 0, 0, 4),
                 Cursor = Cursors.Default,
                 Tag = "response-row"
@@ -1951,7 +1957,7 @@ namespace EvaluaTeach
             var accentBar = new Panel
             {
                 BackColor = Color.FromArgb(38, 166, 91),
-                Size = new Size(3, 72),
+                Size = new Size(3, 88),
                 Location = new Point(0, 0)
             };
 
@@ -2018,6 +2024,18 @@ namespace EvaluaTeach
                 ForeColor = Color.FromArgb(71, 85, 105),
                 AutoSize = true,
                 Location = new Point(58, 46)
+            };
+
+            // Subject badge (shows subject context for per-subject evaluations)
+            var subjectBadge = new Label
+            {
+                Text = response.SubjectDisplay,
+                Font = new Font("Inter", 8F),
+                ForeColor = !string.IsNullOrEmpty(response.SubjectName) ? Color.FromArgb(3, 105, 161) : Color.FromArgb(148, 163, 184),
+                BackColor = !string.IsNullOrEmpty(response.SubjectName) ? Color.FromArgb(224, 242, 254) : Color.FromArgb(248, 250, 252),
+                AutoSize = true,
+                Padding = new Padding(6, 3, 6, 3),
+                Location = new Point(58, 64)
             };
 
             var dateLabel = new Label
@@ -2143,6 +2161,7 @@ namespace EvaluaTeach
             row.Controls.Add(nameLabel);
             row.Controls.Add(idLabel);
             row.Controls.Add(teacherLabel);
+            row.Controls.Add(subjectBadge);
             row.Controls.Add(dateLabel);
             row.Controls.Add(ratingLabel);
             row.Controls.Add(detailsBtn);
@@ -2601,7 +2620,7 @@ namespace EvaluaTeach
 
             try
             {
-                TeacherStore.SaveReport(response.TeacherId, form.Id, avgScore, 1, reportBody);
+                TeacherStore.SaveReport(response.TeacherId, form.Id, response.AssignmentId, avgScore, 1, reportBody);
                 MessageBox.Show(
                     $"Report sent to {response.TeacherName}.\n\nStudent: {response.StudentName}\nForm: {form.Title}",
                     "Report Sent",
@@ -3385,7 +3404,90 @@ namespace EvaluaTeach
                 return;
             }
 
-            // ── Section title ────────────────────────────────────────
+            // ── Subject Performance Section ──────────────────────────
+            var subjectData = TeacherStore.GetTeacherPerformanceBySubject(teacher.TeacherID);
+            if (subjectData.Any())
+            {
+                scroll.Controls.Add(new Label
+                {
+                    Text = "Performance by Subject",
+                    Font = new Font("Inter SemiBold", 11F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(51, 65, 85),
+                    AutoSize = true,
+                    Location = new Point(28, y)
+                });
+                y += 28;
+
+                const decimal maxRatingSubject = 5m;
+                for (int i = 0; i < subjectData.Count && i < 5; i++) // Show top 5 subjects
+                {
+                    var entry = subjectData[i];
+                    var row = new Panel
+                    {
+                        Size = new Size(panelW, 64),
+                        Location = new Point(28, y),
+                        BackColor = Color.White
+                    };
+
+                    row.Controls.Add(new Panel
+                    {
+                        BackColor = Color.FromArgb(59, 130, 246),
+                        Size = new Size(4, 64),
+                        Location = new Point(0, 0)
+                    });
+
+                    row.Controls.Add(new Label
+                    {
+                        Text = entry.SubjectLabel,
+                        Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                        ForeColor = Color.FromArgb(15, 23, 42),
+                        AutoSize = true,
+                        Location = new Point(14, 10)
+                    });
+
+                    row.Controls.Add(new Label
+                    {
+                        Text = $"{entry.ResponseCount} response{(entry.ResponseCount == 1 ? "" : "s")}",
+                        Font = new Font("Inter", 8F),
+                        ForeColor = Color.FromArgb(100, 116, 139),
+                        AutoSize = true,
+                        Location = new Point(14, 34)
+                    });
+
+                    int barW = 180, barH = 10;
+                    var barBg = new Panel
+                    {
+                        BackColor = Color.FromArgb(226, 232, 240),
+                        Size = new Size(barW, barH),
+                        Location = new Point(14, 50)
+                    };
+                    int fillW = (int)Math.Round(barW * (double)entry.AvgScore / (double)maxRatingSubject);
+                    barBg.Controls.Add(new Panel
+                    {
+                        BackColor = Color.FromArgb(59, 130, 246),
+                        Size = new Size(Math.Max(0, fillW), barH),
+                        Location = new Point(0, 0)
+                    });
+                    row.Controls.Add(barBg);
+
+                    var avgLabel = new Label
+                    {
+                        Text = $"★ {entry.AvgScore:0.00} / {maxRatingSubject:0}",
+                        Font = new Font("Inter SemiBold", 11F, FontStyle.Bold),
+                        ForeColor = Color.FromArgb(234, 179, 8),
+                        AutoSize = true,
+                        Anchor = AnchorStyles.Top | AnchorStyles.Right
+                    };
+                    row.Controls.Add(avgLabel);
+                    row.Layout += (_, _) => avgLabel.Location = new Point(row.Width - avgLabel.Width - 80, 18);
+
+                    scroll.Controls.Add(row);
+                    y += 68;
+                }
+                y += 20; // Spacing before semester section
+            }
+
+            // ── Semester Performance Section ─────────────────────────
             scroll.Controls.Add(new Label
             {
                 Text = "Semester Performance",

@@ -53,6 +53,17 @@ namespace EvaluaTeach
         public byte[]? Avatar { get; set; }
         public DateTime SubmittedAt { get; set; } = DateTime.Now;
         public Dictionary<int, string> Answers { get; set; } = new();
+        public int? AssignmentId { get; set; }  // Links to teacher_assignment for per-subject tracking
+        
+        // Subject context (populated when AssignmentId is set)
+        public string SubjectName { get; set; } = string.Empty;
+        public string Course { get; set; } = string.Empty;
+        public string YearLevel { get; set; } = string.Empty;
+        public string Section { get; set; } = string.Empty;
+        
+        public string SubjectDisplay => !string.IsNullOrEmpty(SubjectName) 
+            ? $"📚 {SubjectName} ({Course} · Year {YearLevel} · {Section})" 
+            : "General Evaluation";
     }
 
     public enum CommentLevel
@@ -85,6 +96,17 @@ namespace EvaluaTeach
         public string SchoolYear { get; set; } = string.Empty;
         public string? CommentText { get; set; }
         public CommentLevel? CommentLevel { get; set; }
+        
+        // Subject context for per-subject reports
+        public int? AssignmentID { get; set; }
+        public string SubjectName { get; set; } = string.Empty;
+        public string Course { get; set; } = string.Empty;
+        public string YearLevel { get; set; } = string.Empty;
+        public string Section { get; set; } = string.Empty;
+        
+        public string SubjectDisplay => !string.IsNullOrEmpty(SubjectName)
+            ? $"📚 {SubjectName} ({Course} · Year {YearLevel} · {Section})"
+            : "";
     }
 
     public class TeacherAssignment
@@ -96,6 +118,11 @@ namespace EvaluaTeach
         public string YearLevel { get; set; } = string.Empty;
         public List<string> Subjects { get; set; } = new();
         public string SubjectsDisplay => Subjects.Count > 0 ? string.Join(", ", Subjects) : "N/A";
+        
+        public override string ToString()
+        {
+            return $"{SubjectsDisplay} ({Course} · Year {YearLevel} · {Section})";
+        }
     }
 
     public class FormComment

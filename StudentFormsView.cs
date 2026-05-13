@@ -13,8 +13,11 @@ namespace EvaluaTeach
         private readonly FlowLayoutPanel formsListPanel = new();
         private readonly Label statusLabel = new();
         private readonly Panel contentPanel = new();
+        private readonly ComboBox subjectDropdown = new();
         private readonly int? filterTeacherId;
         private readonly string? filterTeacherName;
+        private readonly int? filterAssignmentId;
+        private List<TeacherAssignment> teacherAssignments = new();
 
         public StudentFormsView()
         {
@@ -30,10 +33,11 @@ namespace EvaluaTeach
             };
         }
 
-        public StudentFormsView(int teacherId, string teacherName)
+        public StudentFormsView(int teacherId, string teacherName, int? assignmentId = null)
         {
             filterTeacherId = teacherId;
             filterTeacherName = teacherName;
+            filterAssignmentId = assignmentId;
             InitializeComponent();
             ConfigureStudentFormsView();
             LoadAvailableForms();
@@ -97,6 +101,39 @@ namespace EvaluaTeach
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             backBtn.Click += (_, _) => Close();
+
+            // Subject dropdown for per-subject evaluation (shown when viewing specific teacher)
+            if (filterTeacherId.HasValue)
+            {
+                LoadTeacherAssignments();
+                
+                subjectDropdown.DropDownStyle = ComboBoxStyle.DropDownList;
+                subjectDropdown.Font = new Font("Inter", 10F);
+                subjectDropdown.Size = new Size(400, 28);
+                subjectDropdown.Location = new Point(32, 24);
+                subjectDropdown.FlatStyle = FlatStyle.Flat;
+                subjectDropdown.BackColor = Color.FromArgb(248, 250, 252);
+                subjectDropdown.SelectedIndexChanged += (_, _) => 
+                {
+                    if (subjectDropdown.SelectedItem is TeacherAssignment assignment)
+                    {
+                        // Update the filter assignment ID and reload forms
+                        var field = typeof(StudentFormsView).GetField("filterAssignmentId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        field?.SetValue(this, assignment.AssignmentID);
+                        LoadAvailableForms();
+                    }
+                };
+                
+                // Add to content panel instead of header
+                contentPanel.Controls.Add(subjectDropdown);
+                
+                // Move status label down to accommodate dropdown
+                statusLabel.Location = new Point(32, 64);
+                
+                // Move forms list down to accommodate both dropdown and status
+                formsListPanel.Location = new Point(32, 100);
+                formsListPanel.Size = new Size(contentPanel.Width - 64, contentPanel.Height - 120);
+            }
 
             header.Controls.Add(titleLabel);
             header.Controls.Add(subtitleLabel);
@@ -162,8 +199,9 @@ namespace EvaluaTeach
             }
 
             int tid = filterTeacherId ?? 0;
-            var availableForms = forms.Where(f => !FormDataStore.HasStudentSubmitted(f.Id, studentId, tid)).ToList();
-            var completedForms = forms.Where(f => FormDataStore.HasStudentSubmitted(f.Id, studentId, tid)).ToList();
+            int? aid = filterAssignmentId;
+            var availableForms = forms.Where(f => !FormDataStore.HasStudentSubmitted(f.Id, studentId, tid, aid)).ToList();
+            var completedForms = forms.Where(f => FormDataStore.HasStudentSubmitted(f.Id, studentId, tid, aid)).ToList();
 
             if (!availableForms.Any() && !completedForms.Any())
             {
@@ -342,12 +380,51 @@ namespace EvaluaTeach
         {
             int tid = filterTeacherId ?? 0;
             string tname = filterTeacherName ?? "";
-            var viewer = new FormViewer(form, tid, tname);
+            // Use selected assignment from dropdown if available
+            int? selectedAssignmentId = filterAssignmentId;
+            if (subjectDropdown.SelectedItem is TeacherAssignment assignment)
+            {
+                selectedAssignmentId = assignment.AssignmentID;
+            }
+            var viewer = new FormViewer(form, tid, tname, selectedAssignmentId);
             viewer.FormSubmitted += () =>
             {
                 LoadAvailableForms();
             };
             viewer.ShowDialog(this);
+        }
+
+        private void LoadTeacherAssignments()
+        {
+            if (!filterTeacherId.HasValue) return;
+            
+            teacherAssignments = TeacherStore.GetTeacherAssignments(filterTeacherId.Value);
+            
+            subjectDropdown.Items.Clear();
+            foreach (var assignment in teacherAssignments)
+            {
+                subjectDropdown.Items.Add(assignment);
+            }
+            
+            // ToString() is overridden in TeacherAssignment to show: "Subjects (Course · Year · Section)"
+            
+            // Pre-select the assignment that matches filterAssignmentId, or first one
+            if (filterAssignmentId.HasValue)
+            {
+                var matching = teacherAssignments.FirstOrDefault(a => a.AssignmentID == filterAssignmentId.Value);
+                if (matching != null)
+                {
+                    subjectDropdown.SelectedItem = matching;
+                }
+                else if (subjectDropdown.Items.Count > 0)
+                {
+                    subjectDropdown.SelectedIndex = 0;
+                }
+            }
+            else if (subjectDropdown.Items.Count > 0)
+            {
+                subjectDropdown.SelectedIndex = 0;
+            }
         }
 
         private void OnFormsUpdated()

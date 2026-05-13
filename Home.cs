@@ -509,10 +509,15 @@ namespace EvaluaTeach
             };
         }
 
-        private void OpenTeacherForms(Teacher teacher)
+        private void OpenTeacherForms(Teacher teacher, int? assignmentId = null)
         {
             // Open the student forms view filtered for this teacher
-            var formsView = new StudentFormsView(teacher.TeacherID, teacher.FullName);
+            // If no assignment specified, use first available assignment for per-subject tracking
+            if (!assignmentId.HasValue && teacher.Assignments.Count > 0)
+            {
+                assignmentId = teacher.Assignments.First().AssignmentID;
+            }
+            var formsView = new StudentFormsView(teacher.TeacherID, teacher.FullName, assignmentId);
             formsView.ShowDialog(this);
         }
 

@@ -406,11 +406,12 @@ namespace EvaluaTeach
             try
             {
                 var subCmd = new MySqlCommand(@"
-                    INSERT INTO FormSubmission (StudentIDNumber, EvaluationID, TeacherID, SubmittedAt)
-                    VALUES (@studentId, @formId, @teacherId, @submittedAt)", conn, tx);
+                    INSERT INTO FormSubmission (StudentIDNumber, EvaluationID, TeacherID, AssignmentID, SubmittedAt)
+                    VALUES (@studentId, @formId, @teacherId, @assignmentId, @submittedAt)", conn, tx);
                 subCmd.Parameters.AddWithValue("@studentId", response.StudentId);
                 subCmd.Parameters.AddWithValue("@formId", response.FormId);
                 subCmd.Parameters.AddWithValue("@teacherId", response.TeacherId > 0 ? response.TeacherId : (object)DBNull.Value);
+                subCmd.Parameters.AddWithValue("@assignmentId", response.AssignmentId.HasValue ? response.AssignmentId.Value : (object)DBNull.Value);
                 subCmd.Parameters.AddWithValue("@submittedAt", response.SubmittedAt);
                 subCmd.ExecuteNonQuery();
 
@@ -445,13 +446,15 @@ namespace EvaluaTeach
             conn.Open();
 
             var cmd = new MySqlCommand(@"
-                SELECT fs.SubmissionID, fs.StudentIDNumber, fs.EvaluationID, fs.TeacherID, fs.SubmittedAt,
+                SELECT fs.SubmissionID, fs.StudentIDNumber, fs.EvaluationID, fs.TeacherID, fs.AssignmentID, fs.SubmittedAt,
                        CONCAT(t.FirstName, ' ', t.LastName) as TeacherName,
                        CONCAT(s.FirstName, ' ', s.LastName) as StudentName,
-                       s.Avatar
+                       s.Avatar,
+                       ta.Subjects, ta.Course, ta.YearLevel, ta.Section
                 FROM FormSubmission fs
                 LEFT JOIN Teacher t ON fs.TeacherID = t.TeacherID
                 LEFT JOIN student s ON s.IDNumber = fs.StudentIDNumber
+                LEFT JOIN teacher_assignment ta ON fs.AssignmentID = ta.AssignmentID
                 WHERE fs.EvaluationID = @formId", conn);
             cmd.Parameters.AddWithValue("@formId", formId);
 
@@ -463,6 +466,12 @@ namespace EvaluaTeach
                     var teacherName = reader.IsDBNull(reader.GetOrdinal("TeacherName")) ? "" : reader.GetString("TeacherName");
                     var studentName = reader.IsDBNull(reader.GetOrdinal("StudentName")) ? "" : reader.GetString("StudentName");
                     var avatar = reader.IsDBNull(reader.GetOrdinal("Avatar")) ? null : (byte[])reader["Avatar"];
+                    var assignmentId = reader.IsDBNull(reader.GetOrdinal("AssignmentID")) ? (int?)null : reader.GetInt32("AssignmentID");
+                    var subjectsStr = reader.IsDBNull(reader.GetOrdinal("Subjects")) ? "" : reader.GetString("Subjects");
+                    var course = reader.IsDBNull(reader.GetOrdinal("Course")) ? "" : reader.GetString("Course");
+                    var yearLevel = reader.IsDBNull(reader.GetOrdinal("YearLevel")) ? "" : reader.GetString("YearLevel");
+                    var section = reader.IsDBNull(reader.GetOrdinal("Section")) ? "" : reader.GetString("Section");
+                    
                     responses.Add(new FormResponse
                     {
                         Id = reader.GetInt32("SubmissionID"),
@@ -473,6 +482,11 @@ namespace EvaluaTeach
                         StudentName = studentName,
                         Avatar = avatar,
                         SubmittedAt = reader.GetDateTime("SubmittedAt"),
+                        AssignmentId = assignmentId,
+                        SubjectName = subjectsStr,
+                        Course = course,
+                        YearLevel = yearLevel,
+                        Section = section,
                         Answers = new Dictionary<int, string>()
                     });
                 }
@@ -532,32 +546,33 @@ namespace EvaluaTeach
             return responses;
         }
 
-        public static bool HasStudentSubmitted(int formId, string studentId, int teacherId = 0)
+        public static bool HasStudentSubmitted(int formId, string studentId, int teacherId = 0, int? assignmentId = null)
         {
             using var conn = Database.GetConnection();
             conn.Open();
 
+            // Per-assignment tracking: if assignmentId provided, check specifically for that assignment
+            // If no assignmentId, fall back to per-teacher check for backward compatibility
             string sql;
             MySqlCommand cmd;
             
-            if (teacherId > 0)
+            if (assignmentId.HasValue && assignmentId.Value > 0)
             {
-                // When checking for a specific teacher, match that teacher OR match submissions
-                // where the form submission was made before teacher tracking was implemented (NULL)
-                // BUT we need to also check if there's a specific submission for this teacher
+                // Check if student has submitted for this specific assignment
                 sql = @"
                     SELECT COUNT(*) FROM FormSubmission 
-                    WHERE EvaluationID = @formId AND StudentIDNumber = @studentId
-                    AND (TeacherID = @teacherId OR TeacherID IS NULL)
-                    AND NOT EXISTS (
-                        SELECT 1 FROM FormSubmission fs2 
-                        WHERE fs2.EvaluationID = @formId 
-                        AND fs2.StudentIDNumber = @studentId 
-                        AND fs2.TeacherID = @teacherId
-                    )";
+                    WHERE EvaluationID = @formId 
+                    AND StudentIDNumber = @studentId
+                    AND AssignmentID = @assignmentId";
                 
-                // Actually simpler: if there's a submission for this specific teacher, it's completed
-                // If there's a NULL submission and no specific teacher submission, consider it completed for backward compat
+                cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@formId", formId);
+                cmd.Parameters.AddWithValue("@studentId", studentId);
+                cmd.Parameters.AddWithValue("@assignmentId", assignmentId.Value);
+            }
+            else if (teacherId > 0)
+            {
+                // Per-teacher check for backward compatibility (when no assignment context available)
                 sql = @"
                     SELECT COUNT(*) FROM FormSubmission 
                     WHERE EvaluationID = @formId AND StudentIDNumber = @studentId
@@ -570,21 +585,22 @@ namespace EvaluaTeach
                             AND fs2.TeacherID = @teacherId
                         ))
                     )";
+                
+                cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@formId", formId);
+                cmd.Parameters.AddWithValue("@studentId", studentId);
+                cmd.Parameters.AddWithValue("@teacherId", teacherId);
             }
             else
             {
-                // No teacher specified - check for any submission by this student for this form
+                // No teacher/assignment specified - check for any submission by this student for this form
                 sql = @"
                     SELECT COUNT(*) FROM FormSubmission 
                     WHERE EvaluationID = @formId AND StudentIDNumber = @studentId";
-            }
-
-            cmd = new MySqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@formId", formId);
-            cmd.Parameters.AddWithValue("@studentId", studentId);
-            if (teacherId > 0)
-            {
-                cmd.Parameters.AddWithValue("@teacherId", teacherId);
+                
+                cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@formId", formId);
+                cmd.Parameters.AddWithValue("@studentId", studentId);
             }
 
             var count = Convert.ToInt32(cmd.ExecuteScalar());
