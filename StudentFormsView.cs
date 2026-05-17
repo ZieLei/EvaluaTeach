@@ -191,6 +191,14 @@ namespace EvaluaTeach
 
             var department = ProfileStore.Meta.Replace("Student ", "").Trim();
             var forms = FormDataStore.GetFormsForStudent(department);
+            
+            // If viewing a specific teacher, also include forms targeted at that teacher
+            if (filterTeacherId.HasValue)
+            {
+                var teacherForms = FormDataStore.GetFormsForTeacher(filterTeacherId.Value);
+                forms = forms.Union(teacherForms).ToList();
+            }
+            
             var studentId = SessionStore.UserId;
 
             if (string.IsNullOrEmpty(studentId))
@@ -202,6 +210,7 @@ namespace EvaluaTeach
             int? aid = filterAssignmentId;
             var availableForms = forms.Where(f => !FormDataStore.HasStudentSubmitted(f.Id, studentId, tid, aid)).ToList();
             var completedForms = forms.Where(f => FormDataStore.HasStudentSubmitted(f.Id, studentId, tid, aid)).ToList();
+            var expiredCount = availableForms.Count(f => f.DueDate.HasValue && f.DueDate.Value < DateTime.Now);
 
             if (!availableForms.Any() && !completedForms.Any())
             {
@@ -210,7 +219,10 @@ namespace EvaluaTeach
                 return;
             }
 
-            statusLabel.Text = $"{availableForms.Count} pending, {completedForms.Count} completed";
+            if (expiredCount > 0)
+                statusLabel.Text = $"{availableForms.Count - expiredCount} pending, {expiredCount} expired, {completedForms.Count} completed";
+            else
+                statusLabel.Text = $"{availableForms.Count} pending, {completedForms.Count} completed";
             statusLabel.ForeColor = Color.FromArgb(100, 116, 139);
 
             if (availableForms.Any())
@@ -257,16 +269,18 @@ namespace EvaluaTeach
 
         private Panel CreateFormCard(EvaluationForm form, bool isCompleted)
         {
+            bool isExpired = form.DueDate.HasValue && form.DueDate.Value < DateTime.Now;
+            
             var card = new Panel
             {
-                BackColor = isCompleted ? Color.FromArgb(248, 250, 252) : Color.White,
+                BackColor = isCompleted ? Color.FromArgb(248, 250, 252) : (isExpired ? Color.FromArgb(254, 242, 242) : Color.White),
                 Size = new Size(formsListPanel.Width - 40, 160),
                 Margin = new Padding(0, 0, 0, 16),
                 Padding = new Padding(24)
             };
 
-            var statusColor = isCompleted ? Color.FromArgb(148, 163, 184) : Color.FromArgb(38, 166, 91);
-            var statusText = isCompleted ? "Completed" : "Pending";
+            var statusColor = isCompleted ? Color.FromArgb(148, 163, 184) : (isExpired ? Color.FromArgb(239, 68, 68) : Color.FromArgb(38, 166, 91));
+            var statusText = isCompleted ? "Completed" : (isExpired ? "Expired" : "Pending");
 
             var title = new Label
             {
@@ -300,11 +314,13 @@ namespace EvaluaTeach
             {
                 var dueLabel = new Label
                 {
-                    Text = $"Due: {form.DueDate.Value:MMM dd, yyyy}",
+                    Text = isExpired ? $"Expired: {form.DueDate.Value:MMM dd, yyyy}" : $"Due: {form.DueDate.Value:MMM dd, yyyy}",
                     Font = new Font("Inter", 9F),
-                    ForeColor = form.DueDate.Value < DateTime.Now.AddDays(3)
+                    ForeColor = isExpired
                         ? Color.FromArgb(239, 68, 68)
-                        : Color.FromArgb(148, 163, 184),
+                        : (form.DueDate.Value < DateTime.Now.AddDays(3)
+                            ? Color.FromArgb(239, 68, 68)
+                            : Color.FromArgb(148, 163, 184)),
                     AutoSize = true,
                     Location = new Point(120, 85)
                 };
@@ -327,7 +343,7 @@ namespace EvaluaTeach
             card.Controls.Add(meta);
             card.Controls.Add(statusBadge);
 
-            if (!isCompleted)
+            if (!isCompleted && !isExpired)
             {
                 var startBtn = new Button
                 {
@@ -343,6 +359,18 @@ namespace EvaluaTeach
                 startBtn.Click += (_, _) => OpenFormViewer(form);
 
                 card.Controls.Add(startBtn);
+            }
+            else if (isExpired)
+            {
+                var expiredLabel = new Label
+                {
+                    Text = "Past Due",
+                    Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(239, 68, 68),
+                    AutoSize = true,
+                    Location = new Point(card.Width - 80, 108)
+                };
+                card.Controls.Add(expiredLabel);
             }
             else
             {
@@ -361,10 +389,15 @@ namespace EvaluaTeach
             {
                 statusBadge.Location = new Point(card.Width - 100, 24);
                 description.MaximumSize = new Size(card.Width - 200, 0);
-                if (!isCompleted)
+                if (!isCompleted && !isExpired)
                 {
                     var btn = card.Controls.OfType<Button>().FirstOrDefault();
                     if (btn != null) btn.Location = new Point(card.Width - 164, 100);
+                }
+                else if (isExpired)
+                {
+                    var lbl = card.Controls.OfType<Label>().FirstOrDefault(l => l.Text == "Past Due");
+                    if (lbl != null) lbl.Location = new Point(card.Width - 80, 108);
                 }
                 else
                 {
@@ -378,8 +411,9 @@ namespace EvaluaTeach
 
         private void OpenFormViewer(EvaluationForm form)
         {
-            int tid = filterTeacherId ?? 0;
-            string tname = filterTeacherName ?? "";
+            // Use the teacher the student selected, or the form's target teacher, or 0
+            int tid = filterTeacherId ?? form.TargetTeacherId ?? 0;
+            string tname = filterTeacherName ?? form.TargetTeacher ?? "";
             // Use selected assignment from dropdown if available
             int? selectedAssignmentId = filterAssignmentId;
             if (subjectDropdown.SelectedItem is TeacherAssignment assignment)

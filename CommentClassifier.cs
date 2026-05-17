@@ -109,10 +109,6 @@ namespace EvaluaTeach
             "dili klaro ang leksyon"
         };
 
-        /// <summary>
-        /// Classifies a comment into one of four levels.
-        /// Normalises leet-speak first, then checks Severe → Moderate → Mild → Normal.
-        /// </summary>
         public static CommentLevel Classify(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
@@ -134,10 +130,6 @@ namespace EvaluaTeach
             return CommentLevel.Normal;
         }
 
-        /// <summary>
-        /// Converts common leet-speak substitutions back to plain letters so
-        /// words like "sh1t", "f@ck", "b!tch" still match the word lists.
-        /// </summary>
         private static string NormalizeLeet(string text)
         {
             return text
@@ -167,9 +159,6 @@ namespace EvaluaTeach
             return false;
         }
 
-        /// <summary>
-        /// Returns a human-readable description of each level.
-        /// </summary>
         public static string GetLevelDescription(CommentLevel level) => level switch
         {
             CommentLevel.Normal   => "Normal — no inappropriate content detected.",

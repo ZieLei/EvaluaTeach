@@ -17,7 +17,11 @@ namespace EvaluaTeach
         private readonly TextBox titleInput = new();
         private readonly TextBox descriptionInput = new();
         private readonly TextBox departmentInput = new();
+        private readonly ComboBox targetModeSelector = new();
         private readonly ComboBox courseSelector = new();
+        private readonly ComboBox teacherSelector = new();
+        private Label courseLabel = new();
+        private Label teacherLabel = new();
         private readonly DateTimePicker dueDatePicker = new();
         private readonly ComboBox typeSelector = new();
         private readonly ComboBox semesterSelector = new();
@@ -226,21 +230,60 @@ namespace EvaluaTeach
             descriptionInput.BorderStyle = BorderStyle.FixedSingle;
             descriptionInput.BackColor = Color.FromArgb(248, 250, 252);
 
-            var courseLabel = new Label
+            // Target Mode Selection
+            var targetModeLabel = new Label
             {
-                Text = "Target Course *",
+                Text = "Target *",
                 Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(51, 65, 85),
                 AutoSize = true,
                 Location = new Point(24, 190)
             };
 
-            courseSelector.Location = new Point(24, 213);
-            courseSelector.Size = new Size(200, 32);
+            targetModeSelector.Location = new Point(24, 213);
+            targetModeSelector.Size = new Size(160, 32);
+            targetModeSelector.Font = new Font("Inter", 11F);
+            targetModeSelector.DropDownStyle = ComboBoxStyle.DropDownList;
+            targetModeSelector.Items.AddRange(new[] { "All Students", "By Course", "By Teacher" });
+            targetModeSelector.SelectedIndex = 0;
+            targetModeSelector.SelectedIndexChanged += (_, _) => UpdateTargetModeUI();
+
+            // Course selection (shown when By Course selected)
+            courseLabel = new Label
+            {
+                Text = "Course",
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(200, 190),
+                Visible = false
+            };
+
+            courseSelector.Location = new Point(200, 213);
+            courseSelector.Size = new Size(140, 32);
             courseSelector.Font = new Font("Inter", 11F);
             courseSelector.DropDownStyle = ComboBoxStyle.DropDownList;
             courseSelector.Items.AddRange(new[] { "All", "BSIT", "BSCS", "BSCE", "BSEE", "BSME", "BSN", "BSA", "BSBA" });
             courseSelector.SelectedIndex = 0;
+            courseSelector.Visible = false;
+
+            // Teacher selection (shown when By Teacher selected)
+            teacherLabel = new Label
+            {
+                Text = "Teacher",
+                Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                AutoSize = true,
+                Location = new Point(200, 190),
+                Visible = false
+            };
+
+            teacherSelector.Location = new Point(200, 213);
+            teacherSelector.Size = new Size(200, 32);
+            teacherSelector.Font = new Font("Inter", 11F);
+            teacherSelector.DropDownStyle = ComboBoxStyle.DropDownList;
+            teacherSelector.Visible = false;
+            LoadTeacherOptions();
 
             var dueDateLabel = new Label
             {
@@ -248,10 +291,10 @@ namespace EvaluaTeach
                 Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(51, 65, 85),
                 AutoSize = true,
-                Location = new Point(250, 190)
+                Location = new Point(420, 190)
             };
 
-            dueDatePicker.Location = new Point(250, 213);
+            dueDatePicker.Location = new Point(420, 213);
             dueDatePicker.Size = new Size(150, 32);
             dueDatePicker.Font = new Font("Inter", 11F);
             dueDatePicker.Format = DateTimePickerFormat.Short;
@@ -265,10 +308,10 @@ namespace EvaluaTeach
                 Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(51, 65, 85),
                 AutoSize = true,
-                Location = new Point(24, 260)
+                Location = new Point(24, 265)
             };
 
-            semesterSelector.Location = new Point(24, 283);
+            semesterSelector.Location = new Point(24, 288);
             semesterSelector.Size = new Size(140, 32);
             semesterSelector.Font = new Font("Inter", 11F);
             semesterSelector.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -282,10 +325,10 @@ namespace EvaluaTeach
                 Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(51, 65, 85),
                 AutoSize = true,
-                Location = new Point(180, 260)
+                Location = new Point(180, 265)
             };
 
-            schoolYearInput.Location = new Point(180, 283);
+            schoolYearInput.Location = new Point(180, 288);
             schoolYearInput.Size = new Size(140, 32);
             schoolYearInput.Font = new Font("Inter", 11F);
             schoolYearInput.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -296,15 +339,19 @@ namespace EvaluaTeach
             schoolYearInput.SelectedItem = currentSy;
             if (schoolYearInput.SelectedIndex < 0) schoolYearInput.SelectedIndex = 3;
 
-            section.Size = new Size(section.Width, 340);
+            section.Size = new Size(section.Width, targetModeSelector.SelectedIndex == 2 ? 380 : 340);
 
             section.Controls.Add(sectionTitle);
             section.Controls.Add(titleLabel);
             section.Controls.Add(titleInput);
             section.Controls.Add(descLabel);
             section.Controls.Add(descriptionInput);
+            section.Controls.Add(targetModeLabel);
+            section.Controls.Add(targetModeSelector);
             section.Controls.Add(courseLabel);
             section.Controls.Add(courseSelector);
+            section.Controls.Add(teacherLabel);
+            section.Controls.Add(teacherSelector);
             section.Controls.Add(dueDateLabel);
             section.Controls.Add(dueDatePicker);
             section.Controls.Add(semesterLabel);
@@ -320,8 +367,8 @@ namespace EvaluaTeach
             var section = new Panel
             {
                 BackColor = Color.White,
-                Location = new Point(24, 328),
-                Size = new Size(parent.Width - 48, parent.Height - 280),
+                Location = new Point(24, 350),
+                Size = new Size(parent.Width - 48, parent.Height - 310),
                 Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 Padding = new Padding(24)
             };
@@ -342,10 +389,10 @@ namespace EvaluaTeach
                 Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(51, 65, 85),
                 AutoSize = true,
-                Location = new Point(24, 55)
+                Location = new Point(24, 60)
             };
 
-            newCategoryInput.Location = new Point(130, 52);
+            newCategoryInput.Location = new Point(130, 57);
             newCategoryInput.Size = new Size(200, 28);
             newCategoryInput.Font = new Font("Inter", 10F);
             newCategoryInput.BorderStyle = BorderStyle.FixedSingle;
@@ -359,7 +406,7 @@ namespace EvaluaTeach
             addCategoryBtn.FlatAppearance.BorderSize = 0;
             addCategoryBtn.Font = new Font("Inter SemiBold", 10F, FontStyle.Bold);
             addCategoryBtn.Size = new Size(120, 32);
-            addCategoryBtn.Location = new Point(340, 50);
+            addCategoryBtn.Location = new Point(340, 55);
             addCategoryBtn.Click += AddCategory;
 
             // Categories Display Panel
@@ -368,7 +415,7 @@ namespace EvaluaTeach
             categoriesPanel.AutoScroll = false;
             categoriesPanel.AutoSize = true;
             categoriesPanel.BackColor = Color.FromArgb(248, 250, 252);
-            categoriesPanel.Location = new Point(24, 90);
+            categoriesPanel.Location = new Point(24, 95);
             categoriesPanel.Size = new Size(section.Width - 48, 60);
             categoriesPanel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             categoriesPanel.Padding = new Padding(8);
@@ -429,15 +476,39 @@ namespace EvaluaTeach
             categories.Clear();
             categories.AddRange(existingCategories);
 
-            if (!string.IsNullOrEmpty(editingForm.TargetCourse))
+            // Load target mode and settings
+            if (editingForm.TargetTeacherId.HasValue)
             {
+                targetModeSelector.SelectedIndex = 2; // By Teacher
+                // Select the teacher in dropdown
+                for (int i = 0; i < teacherSelector.Items.Count; i++)
+                {
+                    if (teacherSelector.Items[i] is TeacherListItem item && item.Id == editingForm.TargetTeacherId.Value)
+                    {
+                        teacherSelector.SelectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            else if (!string.IsNullOrEmpty(editingForm.TargetCourse) && editingForm.TargetCourse != "All")
+            {
+                targetModeSelector.SelectedIndex = 1; // By Course
                 int courseIndex = courseSelector.Items.IndexOf(editingForm.TargetCourse);
                 if (courseIndex >= 0)
                     courseSelector.SelectedIndex = courseIndex;
             }
+            else
+            {
+                targetModeSelector.SelectedIndex = 0; // All Students
+            }
+            
+            UpdateTargetModeUI();
 
             if (editingForm.DueDate.HasValue)
             {
+                dueDatePicker.MinDate = editingForm.DueDate.Value < DateTime.Today
+                    ? editingForm.DueDate.Value
+                    : DateTime.Today;
                 dueDatePicker.Value = editingForm.DueDate.Value;
                 dueDatePicker.Checked = true;
             }
@@ -501,7 +572,7 @@ namespace EvaluaTeach
 
                 // Calculate required size based on text
                 var textSize = TextRenderer.MeasureText(category, categoryLabel.Font, new Size(300, 0), TextFormatFlags.WordBreak);
-                var chipWidth = Math.Max(textSize.Width + 40, 120); // Min width 120px
+                var chipWidth = Math.Max(textSize.Width + 56, 120); // Min width 120px, extra room for delete btn
                 var chipHeight = Math.Max(textSize.Height + 12, 32); // Min height 32px
 
                 var categoryChip = new Panel
@@ -563,9 +634,9 @@ namespace EvaluaTeach
                     ForeColor = Color.White,
                     FlatStyle = FlatStyle.Flat,
                     FlatAppearance = { BorderSize = 0 },
-                    Font = new Font("Inter", 12F, FontStyle.Bold),
-                    Size = new Size(20, 20),
-                    Location = new Point(categoryChip.Width - 32, 6),
+                    Font = new Font("Inter", 9F, FontStyle.Bold),
+                    Size = new Size(22, 22),
+                    Location = new Point(categoryChip.Width - 26, (chipHeight - 22) / 2),
                     Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     Cursor = Cursors.Hand,
                     Margin = new Padding(8, 0, 0, 0)
@@ -707,8 +778,8 @@ namespace EvaluaTeach
                 var questionsInCategory = group?.Select(x => (dynamic)x).ToList() ?? new List<dynamic>();
                 var isCollapsed = collapsedCategories.Contains(category);
 
-                // Add category section
-                var sectionHeight = isCollapsed ? 40 : 40 + (questionsInCategory.Count * 160);
+                // Add category section (card=150 + margin=12 per question, plus 40 extra whitespace at bottom)
+                var sectionHeight = isCollapsed ? 40 : 40 + (questionsInCategory.Count * 162) + 40;
                 var categorySection = new Panel
                 {
                     BackColor = Color.FromArgb(248, 250, 252),
@@ -792,7 +863,7 @@ namespace EvaluaTeach
                     AutoSize = true,
                     BackColor = Color.Transparent,
                     Dock = DockStyle.Fill,
-                    Padding = new Padding(8, 16, 8, 8), // Add 16px top padding for gap
+                    Padding = new Padding(8, 40, 8, 8),
                     Visible = !isCollapsed
                 };
 
@@ -864,18 +935,19 @@ namespace EvaluaTeach
             var card = new Panel
             {
                 BackColor = Color.White,
-                Size = new Size(questionsPanel.Width - 48, question.Type == QuestionType.MultipleChoice ? 230 : 150),
+                Size = new Size(questionsPanel.Width - 48, 150),
                 Margin = new Padding(0, 0, 0, 12),
                 Padding = new Padding(16)
             };
 
+            // Row 1: Number + Type badge + Category dropdown + Remove button
             var numberLabel = new Label
             {
                 Text = $"{questionNumber}.",
-                Font = new Font("Inter", 12F, FontStyle.Bold),
+                Font = new Font("Inter", 11F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(38, 166, 91),
                 AutoSize = true,
-                Location = new Point(16, 18)
+                Location = new Point(12, 12)
             };
 
             var typeBadge = new Label
@@ -886,33 +958,20 @@ namespace EvaluaTeach
                 BackColor = Color.FromArgb(241, 245, 249),
                 AutoSize = true,
                 Padding = new Padding(6, 2, 6, 2),
-                Location = new Point(50, 20)
-            };
-
-            var categoryLabel = new Label
-            {
-                Text = "Category:",
-                Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
-                AutoSize = true,
-                Location = new Point(16, 50)
+                Location = new Point(40, 12)
             };
 
             var categoryDropdown = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Inter", 10F),
-                Location = new Point(90, 48),
-                Size = new Size(250, 28),
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Font = new Font("Inter", 9F),
+                Location = new Point(200, 10),
+                Size = new Size(180, 24),
                 BackColor = Color.FromArgb(248, 250, 252),
                 FlatStyle = FlatStyle.Flat
             };
             
-            // Populate with current categories
             categoryDropdown.Items.AddRange(categories.OrderBy(c => c).ToArray());
-            
-            // Select current category
             var currentCategoryIndex = categoryDropdown.Items.IndexOf(question.Category);
             if (currentCategoryIndex >= 0)
                 categoryDropdown.SelectedIndex = currentCategoryIndex;
@@ -922,30 +981,8 @@ namespace EvaluaTeach
             categoryDropdown.SelectedIndexChanged += (_, _) => 
             {
                 question.Category = categoryDropdown.SelectedItem?.ToString() ?? string.Empty;
-                RefreshQuestionsList(); // Refresh to reorganize questions by new category
+                RefreshQuestionsList();
             };
-
-            var textInput = new TextBox
-            {
-                Text = question.Text,
-                Font = new Font("Inter", 11F),
-                Location = new Point(16, 80),
-                Size = new Size(card.Width - 120, 28),
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
-                BorderStyle = BorderStyle.FixedSingle
-            };
-            textInput.TextChanged += (_, _) => question.Text = textInput.Text;
-
-            var requiredCheck = new CheckBox
-            {
-                Text = "Required",
-                Checked = question.IsRequired,
-                Font = new Font("Inter", 10F),
-                ForeColor = Color.FromArgb(71, 85, 105),
-                AutoSize = true,
-                Location = new Point(16, 115)
-            };
-            requiredCheck.CheckedChanged += (_, _) => question.IsRequired = requiredCheck.Checked;
 
             var deleteBtn = new Button
             {
@@ -955,8 +992,8 @@ namespace EvaluaTeach
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                Size = new Size(80, 28),
-                Location = new Point(card.Width - 96, 50),
+                Size = new Size(85, 26),
+                Location = new Point(card.Width - 101, 10),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             deleteBtn.Click += (_, _) =>
@@ -965,9 +1002,32 @@ namespace EvaluaTeach
                 RefreshQuestionsList();
             };
 
+            // Row 2: Question text input (full width)
+            var textInput = new TextBox
+            {
+                Text = question.Text,
+                Font = new Font("Inter", 10F),
+                Location = new Point(12, 42),
+                Size = new Size(card.Width - 40, 26),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            textInput.TextChanged += (_, _) => question.Text = textInput.Text;
+
+            // Row 3: Required checkbox + type-specific info
+            var requiredCheck = new CheckBox
+            {
+                Text = "Required",
+                Checked = question.IsRequired,
+                Font = new Font("Inter", 9F),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                AutoSize = true,
+                Location = new Point(12, 76)
+            };
+            requiredCheck.CheckedChanged += (_, _) => question.IsRequired = requiredCheck.Checked;
+
             card.Controls.Add(numberLabel);
             card.Controls.Add(typeBadge);
-            card.Controls.Add(categoryLabel);
             card.Controls.Add(categoryDropdown);
             card.Controls.Add(textInput);
             card.Controls.Add(requiredCheck);
@@ -981,28 +1041,27 @@ namespace EvaluaTeach
                     Font = new Font("Inter", 9F),
                     ForeColor = Color.FromArgb(148, 163, 184),
                     AutoSize = true,
-                    Location = new Point(100, 118)
+                    Location = new Point(100, 78)
                 };
                 card.Controls.Add(ratingLabel);
             }
             else if (question.Type == QuestionType.MultipleChoice)
             {
-                card.Height = 230;
                 var optionsLabel = new Label
                 {
                     Text = "Options (comma-separated):",
                     Font = new Font("Inter", 9F),
                     ForeColor = Color.FromArgb(100, 116, 139),
                     AutoSize = true,
-                    Location = new Point(16, 145)
+                    Location = new Point(12, 104)
                 };
 
                 var optionsInput = new TextBox
                 {
                     Text = string.Join(", ", question.Options),
                     Font = new Font("Inter", 10F),
-                    Location = new Point(16, 165),
-                    Size = new Size(card.Width - 48, 24),
+                    Location = new Point(12, 122),
+                    Size = new Size(card.Width - 40, 24),
                     Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                 };
                 optionsInput.TextChanged += (_, _) =>
@@ -1019,9 +1078,8 @@ namespace EvaluaTeach
 
             card.Resize += (_, _) =>
             {
-                categoryDropdown.Size = new Size(Math.Min(250, card.Width - 200), 28);
-                textInput.Size = new Size(card.Width - 120, 28);
-                deleteBtn.Location = new Point(card.Width - 96, 80);
+                textInput.Size = new Size(card.Width - 40, 26);
+                deleteBtn.Location = new Point(card.Width - 101, 10);
             };
 
             return card;
@@ -1047,7 +1105,32 @@ namespace EvaluaTeach
             form.Title = titleInput.Text.Trim();
             form.Description = descriptionInput.Text.Trim();
             form.TargetDepartment = departmentInput.Text.Trim();
-            form.TargetCourse = courseSelector.SelectedItem?.ToString() ?? "All";
+            
+            // Set target based on mode
+            var mode = targetModeSelector.SelectedIndex;
+            if (mode == 0) // All Students
+            {
+                form.TargetCourse = "All";
+                form.TargetTeacherId = null;
+            }
+            else if (mode == 1) // By Course
+            {
+                form.TargetCourse = courseSelector.SelectedItem?.ToString() ?? "All";
+                form.TargetTeacherId = null;
+            }
+            else // By Teacher
+            {
+                form.TargetCourse = "All";
+                if (teacherSelector.SelectedItem is TeacherListItem item && item.Id > 0)
+                {
+                    form.TargetTeacherId = item.Id;
+                    form.TargetTeacher = item.Name;
+                }
+                else
+                {
+                    form.TargetTeacherId = null;
+                }
+            }
             form.DueDate = dueDatePicker.Checked ? dueDatePicker.Value : null;
             form.Semester = semesterSelector.SelectedItem?.ToString() == "(none)" ? "" : (semesterSelector.SelectedItem?.ToString() ?? "");
             form.SchoolYear = schoolYearInput.SelectedItem?.ToString() ?? "";
@@ -1089,6 +1172,48 @@ namespace EvaluaTeach
                 "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             Close();
+        }
+
+        private void LoadTeacherOptions()
+        {
+            teacherSelector.Items.Clear();
+            teacherSelector.Items.Add(new TeacherListItem(0, "-- Select Teacher --"));
+            
+            var teachers = TeacherStore.GetAllTeachers()
+                .OrderBy(t => t.LastName)
+                .ThenBy(t => t.FirstName)
+                .ToList();
+            
+            foreach (var teacher in teachers)
+            {
+                string displayName = $"{teacher.LastName}, {teacher.FirstName}";
+                teacherSelector.Items.Add(new TeacherListItem(teacher.TeacherID, displayName));
+            }
+            
+            teacherSelector.SelectedIndex = 0;
+        }
+
+        private void UpdateTargetModeUI()
+        {
+            var mode = targetModeSelector.SelectedIndex;
+            courseLabel.Visible = mode == 1;
+            courseSelector.Visible = mode == 1;
+            teacherLabel.Visible = mode == 2;
+            teacherSelector.Visible = mode == 2;
+        }
+
+        private class TeacherListItem
+        {
+            public int Id { get; }
+            public string Name { get; }
+            
+            public TeacherListItem(int id, string name)
+            {
+                Id = id;
+                Name = name;
+            }
+            
+            public override string ToString() => Name;
         }
     }
 }

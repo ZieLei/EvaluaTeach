@@ -590,6 +590,14 @@ namespace EvaluaTeach
 
         private void SubmitForm(object? sender, EventArgs e)
         {
+            // Check if form is past due
+            if (form.DueDate.HasValue && form.DueDate.Value < DateTime.Now)
+            {
+                MessageBox.Show($"This evaluation form is past due (Due date was: {form.DueDate.Value:MMM dd, yyyy}).\n\nYou cannot submit this form.",
+                    "Form Expired", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             var missingRequired = new List<string>();
             var answers = new Dictionary<int, string>();
 
@@ -620,18 +628,85 @@ namespace EvaluaTeach
             if (result != DialogResult.Yes)
                 return;
 
-            string commentText = commentTextBox?.Text.Trim() ?? string.Empty;
-            CommentLevel detectedLevel = CommentLevel.Normal;
+            // ── Check all text questions for inappropriate content ──────────────────
+            var textQuestionsToCheck = new List<(FormQuestion Question, string Answer, TextBox Control)>();
+            foreach (var question in form.Questions.Where(q => q.Type == QuestionType.Text))
+            {
+                if (answerControls.TryGetValue(question.Id, out var control) && control is TextBox textBox)
+                {
+                    var text = textBox.Text.Trim();
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        var level = CommentClassifier.Classify(text);
+                        if (level != CommentLevel.Normal)
+                        {
+                            textQuestionsToCheck.Add((question, text, textBox));
+                        }
+                    }
+                }
+            }
 
+            // Check additional comment
+            string commentText = commentTextBox?.Text.Trim() ?? string.Empty;
+            CommentLevel commentLevel = CommentLevel.Normal;
             if (!string.IsNullOrWhiteSpace(commentText))
             {
-                detectedLevel = CommentClassifier.Classify(commentText);
+                commentLevel = CommentClassifier.Classify(commentText);
+            }
 
-                if (detectedLevel == CommentLevel.Mild)
+            // ── Show warnings for text questions with inappropriate content ─────────
+            foreach (var (question, answer, textBox) in textQuestionsToCheck)
+            {
+                var level = CommentClassifier.Classify(answer);
+                string questionLabel = $"Question {question.OrderIndex + 1}";
+
+                if (level == CommentLevel.Mild)
                 {
-                    // Courtesy nudge — repeats every time until comment is clean or user accepts
                     var editResult = MessageBox.Show(
-                        "Your comment may contain slightly aggressive language.\n\n" +
+                        $"{questionLabel} may contain slightly aggressive language.\n\n" +
+                        "Please keep your answers constructive and professional.\n\n" +
+                        "Click YES to edit this answer, or NO to submit it as written.",
+                        "Keep Answers Constructive",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Information);
+
+                    if (editResult == DialogResult.Yes)
+                    {
+                        textBox.Focus();
+                        textBox.SelectAll();
+                        return;
+                    }
+                }
+                else if (level == CommentLevel.Moderate || level == CommentLevel.Severe)
+                {
+                    string levelName = level.ToString();
+                    string desc = CommentClassifier.GetLevelDescription(level);
+
+                    var warningResult = MessageBox.Show(
+                        $"{questionLabel} has been flagged:\n\n" +
+                        $"Level: {levelName.ToUpper()}\n{desc}\n\n" +
+                        "This answer contains inappropriate content.\n\n" +
+                        "Click YES to edit this answer, or NO to submit it as-is.",
+                        "Answer Flagged for Review",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning);
+
+                    if (warningResult == DialogResult.Yes)
+                    {
+                        textBox.Focus();
+                        textBox.SelectAll();
+                        return;
+                    }
+                }
+            }
+
+            // ── Show warning for additional comment if flagged ──────────────────────
+            if (commentLevel != CommentLevel.Normal)
+            {
+                if (commentLevel == CommentLevel.Mild)
+                {
+                    var editResult = MessageBox.Show(
+                        "Your additional comment may contain slightly aggressive language.\n\n" +
                         "Please keep comments constructive and professional.\n\n" +
                         "Click YES to edit your comment, or NO to submit it as written.\n" +
                         "(Your comment will still be held for review if you choose No.)",
@@ -647,10 +722,10 @@ namespace EvaluaTeach
                         return;
                     }
                 }
-                else if (detectedLevel == CommentLevel.Moderate || detectedLevel == CommentLevel.Severe)
+                else if (commentLevel == CommentLevel.Moderate || commentLevel == CommentLevel.Severe)
                 {
-                    string levelName = detectedLevel.ToString();
-                    string desc = CommentClassifier.GetLevelDescription(detectedLevel);
+                    string levelName = commentLevel.ToString();
+                    string desc = CommentClassifier.GetLevelDescription(commentLevel);
 
                     var warningResult = MessageBox.Show(
                         $"Your comment has been flagged:\n\n" +
@@ -687,17 +762,49 @@ namespace EvaluaTeach
 
             FormDataStore.AddResponse(response);
 
+            string studentId = string.IsNullOrWhiteSpace(SessionStore.UserId) ? ProfileStore.StudentId : SessionStore.UserId;
+            string studentName = string.IsNullOrWhiteSpace(SessionStore.UserName) ? ProfileStore.Name : SessionStore.UserName;
+            string studentEmail = ProfileStore.Email ?? string.Empty;
+
+            // ── Save ALL text answers as comments for admin review ───────────────
+            foreach (var question in form.Questions.Where(q => q.Type == QuestionType.Text))
+            {
+                if (answerControls.TryGetValue(question.Id, out var control) && control is TextBox textBox)
+                {
+                    var text = textBox.Text.Trim();
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        var level = CommentClassifier.Classify(text);
+                        
+                        // Save ALL text answers as comments for review
+                        var textAnswerComment = new FormComment
+                        {
+                            StudentDbId = SessionStore.UserIdNumeric,
+                            StudentId = studentId,
+                            StudentName = studentName,
+                            StudentEmail = studentEmail,
+                            TeacherId = teacherId,
+                            SubmissionId = response.Id,
+                            FormTitle = form.Title,
+                            CommentText = text,
+                            SystemLevel = level,
+                            Status = CommentStatus.Pending, // ALL text answers need review regardless of classification
+                            SubmittedAt = DateTime.Now,
+                            QuestionId = question.Id,
+                            QuestionText = question.Text,
+                            IsTextAnswer = true
+                        };
+                        FormDataStore.AddComment(textAnswerComment);
+                    }
+                }
+            }
+
+            // ── Save additional comment if present ─────────────────────────────────
             if (!string.IsNullOrWhiteSpace(commentText))
             {
-                detectedLevel = CommentClassifier.Classify(commentText);
-                // Only Normal is auto-approved; Mild/Moderate/Severe go to admin review
-                var commentStatus = detectedLevel == CommentLevel.Normal
-                    ? CommentStatus.Approved
-                    : CommentStatus.Pending;
-
-                string studentId = string.IsNullOrWhiteSpace(SessionStore.UserId) ? ProfileStore.StudentId : SessionStore.UserId;
-                string studentName = string.IsNullOrWhiteSpace(SessionStore.UserName) ? ProfileStore.Name : SessionStore.UserName;
-                string studentEmail = ProfileStore.Email ?? string.Empty;
+                // All comments require admin review before being sent as reports
+                // Even Normal severity comments need approval
+                var commentStatus = CommentStatus.Pending;
 
                 var formComment = new FormComment
                 {
@@ -709,7 +816,7 @@ namespace EvaluaTeach
                     TeacherId = teacherId,
                     FormTitle = form.Title,
                     CommentText = commentText,
-                    SystemLevel = detectedLevel,
+                    SystemLevel = commentLevel,
                     Status = commentStatus,
                     SubmittedAt = DateTime.Now
                 };

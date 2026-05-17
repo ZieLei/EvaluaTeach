@@ -30,6 +30,8 @@ namespace EvaluaTeach
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string TargetTeacher { get; set; } = string.Empty;
+        public int? TargetTeacherId { get; set; }  // For single teacher (backward compat)
+        public string? TargetTeacherIds { get; set; }  // For multiple teachers (comma-separated)
         public string TargetDepartment { get; set; } = string.Empty;
         public string TargetCourse { get; set; } = "All";
         public List<FormQuestion> Questions { get; set; } = new();
@@ -142,5 +144,10 @@ namespace EvaluaTeach
         public DateTime SubmittedAt { get; set; } = DateTime.Now;
         public DateTime? ReviewedAt { get; set; }
         public string ReviewedBy { get; set; } = string.Empty;
+        
+        // For text question answers that need review
+        public int? QuestionId { get; set; }
+        public string QuestionText { get; set; } = string.Empty;
+        public bool IsTextAnswer { get; set; } = false;
     }
 }

@@ -46,13 +46,10 @@
             button3 = new Button();
             flowLayoutPanel1 = new FlowLayoutPanel();
             label1 = new Label();
-            textBox1 = new TextBox();
-            button8 = new Button();
             panel3 = new Panel();
             label10 = new Label();
             label9 = new Label();
-            button7 = new Button();
-            button6 = new Button();
+            button7 = new PictureBox();
             panel1.SuspendLayout();
             flowLayoutPanel3.SuspendLayout();
             panel2.SuspendLayout();
@@ -226,10 +223,7 @@
             // flowLayoutPanel1
             // 
             flowLayoutPanel1.Controls.Add(label1);
-            flowLayoutPanel1.Controls.Add(textBox1);
-            flowLayoutPanel1.Controls.Add(button8);
             flowLayoutPanel1.Controls.Add(panel3);
-            flowLayoutPanel1.Controls.Add(button6);
             flowLayoutPanel1.Dock = DockStyle.Top;
             flowLayoutPanel1.Location = new Point(0, 0);
             flowLayoutPanel1.Name = "flowLayoutPanel1";
@@ -249,25 +243,6 @@
             label1.TabIndex = 0;
             label1.Text = "EvaluaTeach";
             // 
-            // textBox1
-            // 
-            textBox1.Location = new Point(160, 10);
-            textBox1.Margin = new Padding(3, 10, 3, 3);
-            textBox1.Name = "textBox1";
-            textBox1.Size = new Size(287, 23);
-            textBox1.TabIndex = 1;
-            textBox1.Text = "Search";
-            // 
-            // button8
-            // 
-            button8.BackgroundImage = (Image)resources.GetObject("button8.BackgroundImage");
-            button8.BackgroundImageLayout = ImageLayout.Zoom;
-            button8.Location = new Point(453, 10);
-            button8.Margin = new Padding(3, 10, 3, 3);
-            button8.Name = "button8";
-            button8.Size = new Size(28, 28);
-            button8.TabIndex = 4;
-            button8.UseVisualStyleBackColor = true;
             // 
             // panel3
             // 
@@ -275,9 +250,9 @@
             panel3.Controls.Add(label9);
             panel3.Controls.Add(button7);
             panel3.Location = new Point(634, 3);
-            panel3.Margin = new Padding(150, 3, 3, 3);
+            panel3.Margin = new Padding(50, 3, 3, 3);
             panel3.Name = "panel3";
-            panel3.Size = new Size(200, 50);
+            panel3.Size = new Size(280, 50);
             panel3.TabIndex = 3;
             // 
             // label10
@@ -308,19 +283,8 @@
             button7.Name = "button7";
             button7.Size = new Size(46, 44);
             button7.TabIndex = 0;
-            button7.UseVisualStyleBackColor = true;
-            button7.Click += button7_Click;
+            button7.BorderStyle = BorderStyle.None;
             // 
-            // button6
-            // 
-            button6.BackgroundImage = (Image)resources.GetObject("button6.BackgroundImage");
-            button6.BackgroundImageLayout = ImageLayout.Zoom;
-            button6.Location = new Point(840, 10);
-            button6.Margin = new Padding(3, 10, 3, 3);
-            button6.Name = "button6";
-            button6.Size = new Size(22, 23);
-            button6.TabIndex = 2;
-            button6.UseVisualStyleBackColor = true;
             // 
             // Home
             // 
@@ -352,7 +316,6 @@
         private Button button1;
         private Button button2;
         private Button button3;
-        private TextBox textBox1;
         private Label label2;
         private FlowLayoutPanel flowLayoutPanel3;
         private Panel panel2;
@@ -363,11 +326,9 @@
         private Button button4;
         private Label label8;
         private Label label7;
-        private Button button6;
-        private Button button8;
         private Panel panel3;
         private Label label10;
         private Label label9;
-        private Button button7;
+        private PictureBox button7;
     }
 }

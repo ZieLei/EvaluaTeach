@@ -43,22 +43,6 @@ namespace EvaluaTeach
             OnProfileUpdated();
         }
 
-        private void button7_Click(object sender, EventArgs e)
-        {
-            // Open the profile page and transfer saved profile info if available
-            ProfilePage profile = new();
-
-            // If the Home view has displayed user details in the header labels, pass them to the profile
-            var name = label9?.Text ?? string.Empty;
-            var meta = label10?.Text ?? string.Empty;
-
-            if (!string.IsNullOrWhiteSpace(name) || !string.IsNullOrWhiteSpace(meta))
-            {
-                profile.SetProfileInfo(name, meta, ProfileStore.Email, ProfileStore.StudentId, ProfileStore.DatabaseStudentId);
-            }
-            profile.Show();
-        }
-
         private void OnProfileUpdated()
         {
             // Update header labels and avatar from the shared ProfileStore
@@ -78,7 +62,6 @@ namespace EvaluaTeach
                 {
                     button7.BackgroundImage = ProfileStore.Avatar;
                     button7.BackgroundImageLayout = ImageLayout.Zoom;
-                    button7.Text = string.Empty;
                 }
                 catch
                 {
@@ -88,8 +71,26 @@ namespace EvaluaTeach
                 return;
             }
 
-            button7.BackgroundImage = null;
-            button7.Text = GetInitials(ProfileStore.Name);
+            button7.BackgroundImage = CreateInitialsImage(GetInitials(ProfileStore.Name));
+        }
+
+        private Bitmap CreateInitialsImage(string initials)
+        {
+            var bmp = new Bitmap(button7.Width, button7.Height);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.Clear(Color.FromArgb(22, 163, 74));
+                using (var brush = new SolidBrush(Color.White))
+                {
+                    var font = new Font("Inter", 14F, FontStyle.Bold);
+                    var size = g.MeasureString(initials, font);
+                    var x = (bmp.Width - size.Width) / 2;
+                    var y = (bmp.Height - size.Height) / 2;
+                    g.DrawString(initials, font, brush, x, y);
+                }
+            }
+            return bmp;
         }
 
         private void ConfigureHomeUi()
@@ -118,12 +119,6 @@ namespace EvaluaTeach
             flowLayoutPanel3.WrapContents = false;
             flowLayoutPanel3.AutoScroll = true;
 
-            textBox1.BackColor = Color.FromArgb(248, 250, 252);
-            textBox1.BorderStyle = BorderStyle.FixedSingle;
-            textBox1.ForeColor = Color.FromArgb(90, 99, 112);
-            textBox1.Font = new Font("Inter", 10F, FontStyle.Regular);
-            textBox1.Text = "Search teachers or subjects";
-
             label1.ForeColor = Color.FromArgb(38, 166, 91);
             label2.Font = new Font("Inter", 22F, FontStyle.Bold);
             label2.ForeColor = Color.FromArgb(31, 41, 55);
@@ -149,9 +144,6 @@ namespace EvaluaTeach
             StyleNavButton(button1, true);
             StyleNavButton(button2, false);
             StyleNavButton(button3, false);
-            StyleIconButton(button6);
-            StyleIconButton(button7);
-            StyleIconButton(button8);
             StyleProfileAvatarButton();
             ConfigureDashboardPanels();
             ConfigureFilterPanel();
@@ -391,17 +383,18 @@ namespace EvaluaTeach
                 Font = new Font("Inter SemiBold", 14F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(15, 23, 42),
                 AutoSize = true,
+                MaximumSize = new Size(cardWidth - 240, 0),
                 Location = new Point(78, 16)
             };
 
-            // Email label
+            // Email label - positioned below name label
             var emailLabel = new Label
             {
                 Text = teacher.Email,
                 Font = new Font("Inter", 9F),
                 ForeColor = Color.FromArgb(100, 116, 139),
                 AutoSize = true,
-                Location = new Point(78, 40)
+                Location = new Point(78, nameLabel.Bottom + 4)
             };
 
             // Department badge (green like admin)
@@ -413,7 +406,7 @@ namespace EvaluaTeach
                 BackColor = Color.FromArgb(220, 252, 231),
                 AutoSize = true,
                 Padding = new Padding(8, 4, 8, 4),
-                Location = new Point(78, 62)
+                Location = new Point(78, 0) // Will be set in layout
             };
 
             // Build subjects text from all assignments
@@ -432,7 +425,7 @@ namespace EvaluaTeach
                 Font = new Font("Inter", 9F),
                 ForeColor = allSubjects.Count > 0 ? Color.FromArgb(71, 85, 105) : Color.FromArgb(239, 68, 68),
                 AutoSize = true,
-                Location = new Point(78, 90),
+                Location = new Point(78, 0), // Will be set in layout
                 MaximumSize = new Size(cardWidth - 240, 0)
             };
 
@@ -448,7 +441,7 @@ namespace EvaluaTeach
                 Font = new Font("Inter", 9F),
                 ForeColor = Color.FromArgb(148, 163, 184),
                 AutoSize = true,
-                Location = new Point(78, 110)
+                Location = new Point(78, 0) // Will be set in layout
             };
 
             // View Forms button
@@ -465,12 +458,23 @@ namespace EvaluaTeach
             };
             viewFormsBtn.Click += (_, _) => OpenTeacherForms(teacher);
 
+            // Layout helper to position all labels
+            void LayoutLabels()
+            {
+                nameLabel.MaximumSize = new Size(card.Width - 240, 0);
+                emailLabel.Location = new Point(78, nameLabel.Bottom + 4);
+                deptBadge.Location = new Point(78, emailLabel.Bottom + 8);
+                subjectsLabel.MaximumSize = new Size(card.Width - 240, 0);
+                subjectsLabel.Location = new Point(78, deptBadge.Bottom + 8);
+                classLabel.Location = new Point(78, subjectsLabel.Bottom + 4);
+            }
+
             // Card resize handler
             card.Resize += (_, _) =>
             {
                 accentBar.Height = card.Height;
                 viewFormsBtn.Location = new Point(card.Width - 140, 50);
-                subjectsLabel.MaximumSize = new Size(card.Width - 240, 0);
+                LayoutLabels();
             };
 
             card.Controls.Add(accentBar);
@@ -481,6 +485,10 @@ namespace EvaluaTeach
             card.Controls.Add(subjectsLabel);
             card.Controls.Add(classLabel);
             card.Controls.Add(viewFormsBtn);
+
+            // Initial layout after controls are added
+            card.PerformLayout();
+            LayoutLabels();
 
             return card;
         }
@@ -924,11 +932,7 @@ namespace EvaluaTeach
         private void StyleProfileAvatarButton()
         {
             button7.BackColor = Color.FromArgb(22, 163, 74);
-            button7.ForeColor = Color.White;
-            button7.Font = new Font("Inter", 12F, FontStyle.Bold);
-            button7.TextAlign = ContentAlignment.MiddleCenter;
-            button7.BackgroundImage = null;
-            button7.Text = GetInitials(label9.Text);
+            button7.BackgroundImage = CreateInitialsImage(GetInitials(label9.Text));
         }
 
         private static string GetInitials(string? fullName)
@@ -963,6 +967,16 @@ namespace EvaluaTeach
             {
                 ProfileStore.LoadAvatarFromDatabase(ProfileStore.DatabaseStudentId.Value);
             }
+
+            // Clear filters 100ms after login
+            var timer = new System.Windows.Forms.Timer { Interval = 100 };
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                timer.Dispose();
+                ClearFilters();
+            };
+            timer.Start();
         }
 
         private void Home_Resize(object? sender, EventArgs e)
@@ -1058,28 +1072,11 @@ namespace EvaluaTeach
 
             LayoutNotificationCards(notificationsContainer.Width);
 
-            panel3.Width = 200;
+            panel3.Width = 280;
             panel3.Height = 52;
             button7.Size = new Size(46, 46);
-            button7.Region = new Region(new Rectangle(0, 0, button7.Width, button7.Height));
-            using (GraphicsPath path = new())
-            {
-                path.AddEllipse(0, 0, button7.Width - 1, button7.Height - 1);
-                button7.Region = new Region(path);
-            }
 
-            int headerReservedWidth =
-                flowLayoutPanel1.Padding.Left +
-                flowLayoutPanel1.Padding.Right +
-                label1.Width +
-                button8.Width +
-                panel3.Width +
-                button6.Width +
-                104;
-
-            textBox1.Width = Math.Max(230, flowLayoutPanel1.ClientSize.Width - headerReservedWidth);
-            panel3.Margin = new Padding(16, 0, 6, 0);
-            button6.Margin = new Padding(0, 10, 0, 0);
+            panel3.Margin = new Padding(Math.Max(16, flowLayoutPanel1.ClientSize.Width - label1.Width - panel3.Width - 100), 0, 6, 0);
             flowLayoutPanel2.Height = Math.Max(0, panel1.ClientSize.Height - headerHeight);
 
             int sidebarAvailableHeight = flowLayoutPanel2.Height - flowLayoutPanel2.Padding.Top - flowLayoutPanel2.Padding.Bottom;
@@ -1220,9 +1217,8 @@ namespace EvaluaTeach
             courseFilter.DropDownStyle = ComboBoxStyle.DropDownList;
             courseFilter.Font = new Font("Inter", 10F);
             courseFilter.Size = new Size(140, 28);
-            courseFilter.Location = new Point(80, 12);
+            courseFilter.Location = new Point(90, 12);
             courseFilter.FlatStyle = FlatStyle.Flat;
-            courseFilter.BackColor = Color.FromArgb(248, 250, 252);
             courseFilter.SelectedIndexChanged += (_, _) => LoadTeachers();
 
             // Year filter label and dropdown
@@ -1238,9 +1234,8 @@ namespace EvaluaTeach
             yearFilter.DropDownStyle = ComboBoxStyle.DropDownList;
             yearFilter.Font = new Font("Inter", 10F);
             yearFilter.Size = new Size(100, 28);
-            yearFilter.Location = new Point(290, 12);
+            yearFilter.Location = new Point(300, 12);
             yearFilter.FlatStyle = FlatStyle.Flat;
-            yearFilter.BackColor = Color.FromArgb(248, 250, 252);
             yearFilter.SelectedIndexChanged += (_, _) => LoadTeachers();
 
             // Section filter label and dropdown
@@ -1256,9 +1251,8 @@ namespace EvaluaTeach
             sectionFilter.DropDownStyle = ComboBoxStyle.DropDownList;
             sectionFilter.Font = new Font("Inter", 10F);
             sectionFilter.Size = new Size(100, 28);
-            sectionFilter.Location = new Point(470, 12);
+            sectionFilter.Location = new Point(480, 12);
             sectionFilter.FlatStyle = FlatStyle.Flat;
-            sectionFilter.BackColor = Color.FromArgb(248, 250, 252);
             sectionFilter.SelectedIndexChanged += (_, _) => LoadTeachers();
 
             // Clear filters button

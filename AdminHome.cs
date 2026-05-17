@@ -9,8 +9,6 @@ namespace EvaluaTeach
 {
     public partial class AdminHome : Form
     {
-        private void InitializeComponent() { }
-
         private readonly Panel sidebar = new();
         private readonly Panel header = new();
         private readonly Panel contentPanel = new();
@@ -39,7 +37,6 @@ namespace EvaluaTeach
         private readonly TextBox teacherSectionInput = new();
         private readonly TextBox teacherCourseInput = new();
         private readonly TextBox teacherYearLevelInput = new();
-        private readonly Button profileBtn = new();
         private readonly Button commentsBtn = new();
         private readonly FlowLayoutPanel commentsListPanel = new();
         private readonly Label statsLabel4 = new();
@@ -227,22 +224,6 @@ namespace EvaluaTeach
             titleLabel.AutoSize = true;
             titleLabel.Location = new Point(272, 22);
 
-            profileBtn.Text = "Profile";
-            profileBtn.BackColor = Color.FromArgb(241, 245, 249);
-            profileBtn.ForeColor = Color.FromArgb(15, 23, 42);
-            profileBtn.FlatStyle = FlatStyle.Flat;
-            profileBtn.FlatAppearance.BorderSize = 0;
-            profileBtn.Font = new Font("Inter SemiBold", 10F, FontStyle.Bold);
-            profileBtn.Size = new Size(100, 44);
-            profileBtn.Location = new Point(580, 14);
-            profileBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            profileBtn.Click += (_, _) =>
-            {
-                var profilePage = new AdminProfilePage();
-                profilePage.SetProfileInfo(SessionStore.UserName, "Administrator", SessionStore.Email, SessionStore.UserId);
-                profilePage.ShowDialog(this);
-            };
-
             createFormBtn.Text = "+ Create New Form";
             createFormBtn.BackColor = Color.FromArgb(38, 166, 91);
             createFormBtn.ForeColor = Color.White;
@@ -257,7 +238,6 @@ namespace EvaluaTeach
 
             header.Controls.Add(logoLabel);
             header.Controls.Add(titleLabel);
-            header.Controls.Add(profileBtn);
             header.Controls.Add(createFormBtn);
             header.Width = header.Parent?.ClientSize.Width ?? 800;
         }
@@ -505,9 +485,24 @@ namespace EvaluaTeach
 
             string semesterTag = (!string.IsNullOrEmpty(form.Semester) && !string.IsNullOrEmpty(form.SchoolYear))
                 ? $" | {form.Semester} Sem {form.SchoolYear}" : "";
+
+            string targetDisplay;
+            if (form.TargetTeacherId.HasValue)
+            {
+                targetDisplay = $"Teacher: {form.TargetTeacher}";
+            }
+            else if (!string.IsNullOrEmpty(form.TargetCourse) && form.TargetCourse != "All")
+            {
+                targetDisplay = $"Course: {form.TargetCourse}";
+            }
+            else
+            {
+                targetDisplay = "All Students";
+            }
+
             var meta = new Label
             {
-                Text = $"{form.Questions.Count} questions | Target: {(!string.IsNullOrWhiteSpace(form.TargetCourse) ? form.TargetCourse : "All")}{semesterTag} | Created: {form.CreatedAt:MMM dd, yyyy}",
+                Text = $"{form.Questions.Count} questions | {targetDisplay}{semesterTag} | Created: {form.CreatedAt:MMM dd, yyyy}",
                 Font = new Font("Inter", 9F),
                 ForeColor = Color.FromArgb(148, 163, 184),
                 AutoSize = true,
@@ -522,6 +517,7 @@ namespace EvaluaTeach
                 BackColor = statusColor,
                 AutoSize = true,
                 Padding = new Padding(8, 4, 8, 4),
+                
                 Location = new Point(card.Width - 100, 20)
             };
 
@@ -536,7 +532,7 @@ namespace EvaluaTeach
                     BackColor = Color.FromArgb(59, 130, 246),
                     AutoSize = true,
                     Padding = new Padding(8, 4, 8, 4),
-                    Location = new Point(card.Width - 260, 20)
+                    Location = new Point(card.Width - 290, 20)
                 };
             }
 
@@ -623,7 +619,6 @@ namespace EvaluaTeach
         {
             logoutBtn.Location = new Point(24, sidebar.ClientSize.Height - logoutBtn.Height - 32);
 
-            profileBtn.Location = new Point(header.ClientSize.Width - createFormBtn.Width - profileBtn.Width - 36, 14);
             createFormBtn.Location = new Point(header.ClientSize.Width - createFormBtn.Width - 24, 14);
 
             bool onDashboard = !showingResponses && !showingTeachers && !showingStudents && !showingComments && !showingReports;
@@ -651,6 +646,8 @@ namespace EvaluaTeach
                 LoadResponsesView();
             else if (showingComments)
                 LoadCommentsView(false);
+            else if (showingReports)
+                LoadReportsView();
             else
                 LoadFormsList();
 
@@ -686,8 +683,23 @@ namespace EvaluaTeach
 
         private void ToggleFormStatus(EvaluationForm form)
         {
+            if (form.IsActive)
+            {
+                // Deactivating - show warning about responses
+                var result = MessageBox.Show(
+                    $"Are you sure you want to deactivate the form '{form.Title}'?\n\n" +
+                    "WARNING: All student responses and submissions for this form will be permanently deleted. " +
+                    "This action cannot be undone.",
+                    "Confirm Deactivate",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result != DialogResult.Yes)
+                    return;
+            }
+
             form.IsActive = !form.IsActive;
-            FormDataStore.UpdateForm(form);
+            FormDataStore.UpdateForm(form); // This triggers FormsUpdated event
         }
 
         private void DeleteForm(EvaluationForm form)
@@ -944,7 +956,8 @@ namespace EvaluaTeach
                             : 0.0,
                         TotalResponses: fg.Sum(r => r.ResponseCount),
                         LatestDate: fg.Max(r => r.SubmissionDate),
-                        ReportIDs: fg.Select(r => r.ReportID).ToList()
+                        ReportIDs: fg.Select(r => r.ReportID).ToList(),
+                        AssignmentID: fg.First().AssignmentID
                     ))
                     .OrderByDescending(f => f.LatestDate)
                     .ToList();
@@ -964,7 +977,7 @@ namespace EvaluaTeach
         private Panel CreateTeacherReportAccordion(
             int teacherID,
             string teacherName,
-            List<(int EvaluationID, string FormTitle, double AvgScore, int TotalResponses, DateTime LatestDate, List<int> ReportIDs)> formRows)
+            List<(int EvaluationID, string FormTitle, double AvgScore, int TotalResponses, DateTime LatestDate, List<int> ReportIDs, int? AssignmentID)> formRows)
         {
             const int headerH = 60;
             const int rowHeaderH = 56;
@@ -1097,7 +1110,7 @@ namespace EvaluaTeach
                 // Avg score badge
                 var avgBadge = new Label
                 {
-                    Text = fr.AvgScore > 0 ? $"★ {fr.AvgScore:0.00} / 5" : "No rating",
+                    Text = fr.AvgScore > 0 ? $"Score: {fr.AvgScore:0.00} / 5" : "No rating",
                     Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
                     ForeColor = fr.AvgScore > 0 ? Color.FromArgb(146, 64, 14) : Color.FromArgb(100, 116, 139),
                     BackColor = fr.AvgScore > 0 ? Color.FromArgb(254, 243, 199) : Color.FromArgb(241, 245, 249),
@@ -1110,13 +1123,13 @@ namespace EvaluaTeach
                 // Details toggle button
                 var detailsBtn = new Button
                 {
-                    Text = "▶ Details",
+                    Text = "Details",
                     BackColor = Color.FromArgb(241, 245, 249),
                     ForeColor = Color.FromArgb(71, 85, 105),
                     FlatStyle = FlatStyle.Flat,
                     FlatAppearance = { BorderSize = 0 },
                     Font = new Font("Inter SemiBold", 8F, FontStyle.Bold),
-                    Size = new Size(80, 24),
+                    Size = new Size(100, 24),
                     Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     Cursor = Cursors.Hand
                 };
@@ -1125,13 +1138,13 @@ namespace EvaluaTeach
                 // Delete button
                 var deleteBtn = new Button
                 {
-                    Text = "🗑️",
+                    Text = "Delete",
                     BackColor = Color.FromArgb(254, 226, 226),
                     ForeColor = Color.FromArgb(185, 28, 28),
                     FlatStyle = FlatStyle.Flat,
                     FlatAppearance = { BorderSize = 0 },
                     Font = new Font("Inter", 9F),
-                    Size = new Size(30, 30),
+                    Size = new Size(70, 30),
                     Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     Cursor = Cursors.Hand
                 };
@@ -1159,9 +1172,9 @@ namespace EvaluaTeach
                 rowPanel.Layout += (_, _) =>
                 {
                     int rw = rowPanel.Width;
-                    avgBadge.Location = new Point(rw - avgBadge.Width - 130, (rowHeaderH - avgBadge.Height) / 2);
-                    detailsBtn.Location = new Point(rw - 126, (rowHeaderH - 24) / 2);
-                    deleteBtn.Location = new Point(rw - 40, (rowHeaderH - 30) / 2);
+                    deleteBtn.Location = new Point(rw - 80, (rowHeaderH - 30) / 2);
+                    detailsBtn.Location = new Point(rw - 190, (rowHeaderH - 24) / 2);
+                    avgBadge.Location = new Point(rw - avgBadge.Width - 210, (rowHeaderH - avgBadge.Height) / 2);
                     rowAccent.Height = rowPanel.Height;
                 };
 
@@ -1185,7 +1198,7 @@ namespace EvaluaTeach
                             detailPanel.Dispose();
                         }
                         var form = FormDataStore.GetForm(fr.EvaluationID);
-                        var sentIds = TeacherStore.GetSentSubmissionIds(teacherID, fr.EvaluationID);
+                        var sentIds = TeacherStore.GetSentSubmissionIds(teacherID, fr.EvaluationID, fr.AssignmentID);
                         var responses = FormDataStore.GetResponsesForForm(fr.EvaluationID)
                             .Where(r => r.TeacherId == teacherID && sentIds.Contains(r.Id))
                             .ToList();
@@ -1341,7 +1354,7 @@ namespace EvaluaTeach
 
                     outer.Controls.Add(new Label
                     {
-                        Text = $"★ {avg:0.00} avg  ·  {vals.Count} response{(vals.Count == 1 ? "" : "s")}",
+                        Text = $"{avg:0.00} avg  ·  {vals.Count} response{(vals.Count == 1 ? "" : "s")}",
                         Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
                         ForeColor = Color.FromArgb(146, 64, 14),
                         AutoSize = true,
@@ -1446,7 +1459,9 @@ namespace EvaluaTeach
                         .Select(r =>
                         {
                             r.Answers.TryGetValue(q.Id, out var a);
-                            return (Resp: r, Ans: a);
+                            // Check if this text answer has a comment record
+                            var comment = FormDataStore.GetTextAnswerComment(r.Id, q.Id);
+                            return (Resp: r, Ans: a, Comment: comment);
                         })
                         .Where(x => !string.IsNullOrWhiteSpace(x.Ans))
                         .ToList();
@@ -1473,11 +1488,23 @@ namespace EvaluaTeach
                     int ay = 6;
                     for (int ti = 0; ti < textAnswerPairs.Count; ti++)
                     {
-                        var (resp, ans) = textAnswerPairs[ti];
+                        var (resp, ans, comment) = textAnswerPairs[ti];
                         int cardH = cardHeights[ti];
+                        // Anonymize student names for privacy, but show special indicator for high severity
+                        bool isHighSeverity = comment?.SystemLevel == CommentLevel.Severe || comment?.AdminLevel == CommentLevel.Severe;
                         string studentLabel = !string.IsNullOrWhiteSpace(resp.StudentName)
-                            ? $"{resp.StudentName} ({resp.StudentId})"
+                            ? (isHighSeverity ? $"⚠️ Student ({resp.StudentId})" : $"Student ({resp.StudentId})")
                             : resp.StudentId;
+
+                        // Check if comment is rejected - if so, show placeholder
+                        string displayText = ans;
+                        Color textColor = Color.FromArgb(30, 41, 59);
+                        if (comment?.Status == CommentStatus.Rejected)
+                        {
+                            var level = comment.AdminLevel ?? comment.SystemLevel;
+                            displayText = $"(Removed by a moderator. Severity Level: {level}.)";
+                            textColor = Color.FromArgb(153, 27, 27); // Red for removed
+                        }
 
                         var ansCard = new Panel
                         {
@@ -1486,19 +1513,35 @@ namespace EvaluaTeach
                             Location = new Point(6, ay)
                         };
 
-                        ansCard.Controls.Add(new Label
+                        var studentLabelControl = new Label
                         {
                             Text = studentLabel,
                             Font = new Font("Inter SemiBold", 7F, FontStyle.Bold),
-                            ForeColor = Color.FromArgb(38, 166, 91),
+                            ForeColor = isHighSeverity ? Color.FromArgb(255, 140, 0) : Color.FromArgb(38, 166, 91), // Orange for high severity
                             AutoSize = true,
-                            Location = new Point(8, 4)
-                        });
+                            Location = new Point(8, 4),
+                            Cursor = isHighSeverity ? Cursors.Hand : Cursors.Default
+                        };
+                        
+                        // Add click handler for high-severity comments to show student details
+                        if (isHighSeverity)
+                        {
+                            studentLabelControl.Click += (_, _) => {
+                                MessageBox.Show(
+                                    $"Student Details:\n\nName: {resp.StudentName}\nID: {resp.StudentId}\n\nThis information is only shown for high-severity comments.",
+                                    "High Severity Comment - Student Details",
+                                    MessageBoxButtons.OK,
+                                    MessageBoxIcon.Warning
+                                );
+                            };
+                        }
+                        
+                        ansCard.Controls.Add(studentLabelControl);
                         ansCard.Controls.Add(new Label
                         {
-                            Text = ans,
+                            Text = displayText,
                             Font = new Font("Inter", 9F),
-                            ForeColor = Color.FromArgb(30, 41, 59),
+                            ForeColor = textColor,
                             AutoSize = false,
                             Size = new Size(cardW - 20, cardH - 24),
                             Location = new Point(8, 20)
@@ -1523,7 +1566,9 @@ namespace EvaluaTeach
 
             // ── Approved student comments ────────────────────────────
             var submissionIds = responses.Select(r => r.Id).ToList();
-            var approvedComments = FormDataStore.GetApprovedCommentsForSubmissions(submissionIds);
+            var approvedComments = FormDataStore.GetApprovedCommentsForSubmissions(submissionIds)
+                .Where(c => c.QuestionId == null) // Filter out text answers to prevent duplicates
+                .ToList();
 
             if (approvedComments.Any())
             {
@@ -1580,18 +1625,36 @@ namespace EvaluaTeach
                         Location = new Point(0, 0)
                     });
 
+                    // Anonymize student info for privacy, but show special indicator for high severity
+                    bool isHighSeverity = ac.SystemLevel == CommentLevel.Severe || ac.AdminLevel == CommentLevel.Severe;
                     string studentLabel = !string.IsNullOrWhiteSpace(ac.StudentName)
-                        ? $"{ac.StudentName} ({ac.StudentId})"
+                        ? (isHighSeverity ? $"⚠️ Student ({ac.StudentId})" : $"Student ({ac.StudentId})")
                         : ac.StudentId;
 
-                    commentCard.Controls.Add(new Label
+                    var studentLabelControl = new Label
                     {
                         Text = studentLabel,
                         Font = new Font("Inter SemiBold", 8F, FontStyle.Bold),
-                        ForeColor = Color.FromArgb(38, 166, 91),
+                        ForeColor = isHighSeverity ? Color.FromArgb(255, 140, 0) : Color.FromArgb(38, 166, 91), // Orange for high severity
                         AutoSize = true,
-                        Location = new Point(12, 6)
-                    });
+                        Location = new Point(12, 6),
+                        Cursor = isHighSeverity ? Cursors.Hand : Cursors.Default
+                    };
+                    
+                    // Add click handler for high-severity comments to show student details
+                    if (isHighSeverity)
+                    {
+                        studentLabelControl.Click += (_, _) => {
+                            MessageBox.Show(
+                                $"Student Details:\n\nName: {ac.StudentName}\nID: {ac.StudentId}\n\nThis information is only shown for high-severity comments.",
+                                "High Severity Comment - Student Details",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning
+                            );
+                        };
+                    }
+                    
+                    commentCard.Controls.Add(studentLabelControl);
 
                     var levelBadge = new Label
                     {
@@ -1605,11 +1668,18 @@ namespace EvaluaTeach
                     };
                     commentCard.Controls.Add(levelBadge);
 
+                    // If rejected, show the removal message instead of the actual comment
+                    string displayText = ac.CommentText;
+                    if (ac.Status == CommentStatus.Rejected)
+                    {
+                        displayText = $"(Removed by a moderator. Severity Level: {ac.SystemLevel}.)";
+                    }
+
                     commentCard.Controls.Add(new Label
                     {
-                        Text = ac.CommentText,
+                        Text = displayText,
                         Font = new Font("Inter", 9F),
-                        ForeColor = Color.FromArgb(30, 41, 59),
+                        ForeColor = ac.Status == CommentStatus.Rejected ? Color.FromArgb(153, 27, 27) : Color.FromArgb(30, 41, 59),
                         AutoSize = false,
                         Size = new Size(commentW - 20, commentTextH),
                         Location = new Point(12, 24)
@@ -1857,8 +1927,19 @@ namespace EvaluaTeach
                 string lastTeacherName = "";
                 foreach (var response in responses)
                 {
-                    if (response.TeacherId <= 0) { noTeacher++; continue; }
-                    if (TeacherStore.HasReportBeenSent(response.TeacherId, form.Id, response.Id)) { skipped++; continue; }
+                    // Get effective teacher ID from response or form's target
+                    int effectiveTeacherId = response.TeacherId > 0 ? response.TeacherId : (form.TargetTeacherId ?? 0);
+                    string effectiveTeacherName = response.TeacherId > 0 ? response.TeacherName : form.TargetTeacher;
+                    
+                    if (effectiveTeacherId <= 0) { noTeacher++; continue; }
+                    if (TeacherStore.HasReportBeenSent(effectiveTeacherId, form.Id, response.Id)) { skipped++; continue; }
+                    
+                    // Skip if has pending text answer comments
+                    if (FormDataStore.HasPendingTextAnswerComments(response.Id)) { skipped++; continue; }
+                    
+                    // Skip if has pending additional comments
+                    var pendingAdditionalComment = FormDataStore.GetCommentForSubmission(response.Id);
+                    if (pendingAdditionalComment != null && pendingAdditionalComment.Status == CommentStatus.Pending) { skipped++; continue; }
                     decimal avgScore = 0;
                     var ratingQs = form.Questions.Where(q => q.Type == QuestionType.Rating).ToList();
                     if (ratingQs.Any())
@@ -1870,9 +1951,9 @@ namespace EvaluaTeach
                     }
                     try
                     {
-                        TeacherStore.SaveReport(response.TeacherId, form.Id, response.AssignmentId, avgScore, 1, BuildResponseReport(form, response));
+                        TeacherStore.SaveReport(effectiveTeacherId, form.Id, response.AssignmentId, avgScore, 1, BuildResponseReport(form, response));
                         sent++;
-                        lastTeacherName = response.TeacherName;
+                        lastTeacherName = effectiveTeacherName;
                     }
                     catch { /* individual failures are silent in batch */ }
                 }
@@ -2049,7 +2130,7 @@ namespace EvaluaTeach
 
             var ratingLabel = new Label
             {
-                Text = avgRating.HasValue ? $"★ {avgRating.Value:0.0}" : "",
+                Text = avgRating.HasValue ? $"{avgRating.Value:0.0}" : "",
                 Font = new Font("Inter SemiBold", 10F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(234, 179, 8),
                 AutoSize = true,
@@ -2070,11 +2151,20 @@ namespace EvaluaTeach
             };
             detailsBtn.Click += (_, _) => ShowResponseDetails(form, response);
 
-            bool alreadySent = response.TeacherId > 0 &&
-                TeacherStore.HasReportBeenSent(response.TeacherId, form.Id, response.Id);
+            // Get effective teacher ID from response or form's target
+            int effectiveTeacherId = response.TeacherId > 0 ? response.TeacherId : (form.TargetTeacherId ?? 0);
+            
+            bool alreadySent = effectiveTeacherId > 0 &&
+                TeacherStore.HasReportBeenSent(effectiveTeacherId, form.Id, response.Id);
 
-            var pendingComment = FormDataStore.GetCommentForSubmission(response.Id);
-            bool hasPendingComment = pendingComment != null && pendingComment.Status == CommentStatus.Pending;
+            // Check for pending additional comments
+            var pendingAdditionalComment = FormDataStore.GetCommentForSubmission(response.Id);
+            bool hasPendingAdditionalComment = pendingAdditionalComment != null && pendingAdditionalComment.Status == CommentStatus.Pending;
+            
+            // Check for pending text answer comments
+            bool hasPendingTextComments = FormDataStore.HasPendingTextAnswerComments(response.Id);
+            
+            bool hasPendingComment = hasPendingAdditionalComment || hasPendingTextComments;
 
             string sendBtnText;
             Color sendBtnColor;
@@ -2100,7 +2190,7 @@ namespace EvaluaTeach
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                Size = new Size(68, 28),
+                Size = new Size(90, 28),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Cursor = sendBtnEnabled ? Cursors.Hand : Cursors.Default,
                 Enabled = sendBtnEnabled
@@ -2108,22 +2198,28 @@ namespace EvaluaTeach
             if (hasPendingComment)
                 sendBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(234, 179, 8);
 
-            // Revoke button — only visible when already sent
+            // Revoke button — grayed out until report is sent
             var revokeBtn = new Button
             {
                 Text = "Revoke",
-                BackColor = Color.FromArgb(254, 226, 226),
-                ForeColor = Color.FromArgb(185, 28, 28),
+                BackColor = alreadySent ? Color.FromArgb(254, 226, 226) : Color.FromArgb(226, 232, 240),
+                ForeColor = alreadySent ? Color.FromArgb(185, 28, 28) : Color.FromArgb(148, 163, 184),
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                Size = new Size(62, 28),
+                Size = new Size(90, 28),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Cursor = Cursors.Hand,
-                Visible = alreadySent
+                Enabled = alreadySent
             };
-            revokeBtn.MouseEnter += (_, _) => revokeBtn.BackColor = Color.FromArgb(252, 202, 202);
-            revokeBtn.MouseLeave += (_, _) => revokeBtn.BackColor = Color.FromArgb(254, 226, 226);
+            revokeBtn.MouseEnter += (_, _) => 
+            {
+                if (revokeBtn.Enabled) revokeBtn.BackColor = Color.FromArgb(252, 202, 202);
+            };
+            revokeBtn.MouseLeave += (_, _) => 
+            {
+                if (revokeBtn.Enabled) revokeBtn.BackColor = Color.FromArgb(254, 226, 226);
+            };
 
             sendBtn.Click += (_, _) =>
             {
@@ -2132,7 +2228,10 @@ namespace EvaluaTeach
                 sendBtn.BackColor = Color.FromArgb(148, 163, 184);
                 sendBtn.Enabled = false;
                 sendBtn.Cursor = Cursors.Default;
-                revokeBtn.Visible = true;
+                // Enable revoke button with red color
+                revokeBtn.Enabled = true;
+                revokeBtn.BackColor = Color.FromArgb(254, 226, 226);
+                revokeBtn.ForeColor = Color.FromArgb(185, 28, 28);
             };
 
             revokeBtn.Click += (_, _) =>
@@ -2144,7 +2243,7 @@ namespace EvaluaTeach
                     MessageBoxIcon.Warning);
                 if (confirm != DialogResult.Yes) return;
 
-                int reportId = TeacherStore.GetReportIdForSubmission(response.TeacherId, form.Id, response.Id);
+                int reportId = TeacherStore.GetReportIdForSubmission(effectiveTeacherId, form.Id, response.Id);
                 if (reportId > 0)
                     TeacherStore.DeleteReport(reportId);
 
@@ -2153,7 +2252,10 @@ namespace EvaluaTeach
                 sendBtn.BackColor = Color.FromArgb(38, 166, 91);
                 sendBtn.Enabled = true;
                 sendBtn.Cursor = Cursors.Hand;
-                revokeBtn.Visible = false;
+                // Disable revoke button with gray color
+                revokeBtn.Enabled = false;
+                revokeBtn.BackColor = Color.FromArgb(226, 232, 240);
+                revokeBtn.ForeColor = Color.FromArgb(148, 163, 184);
             };
 
             row.Controls.Add(accentBar);
@@ -2171,20 +2273,20 @@ namespace EvaluaTeach
             row.Resize += (_, _) =>
             {
                 accentBar.Size       = new Size(3, row.Height);
-                dateLabel.Location   = new Point(row.Width - 490, 27);
-                ratingLabel.Location = new Point(row.Width - 320, 27);
-                detailsBtn.Location  = new Point(row.Width - 230, 22);
-                sendBtn.Location     = new Point(row.Width - 148, 22);
-                revokeBtn.Location   = new Point(row.Width - 74, 22);
+                dateLabel.Location   = new Point(row.Width - 550, 27);     // Moved left
+                ratingLabel.Location = new Point(row.Width - 380, 27);     // Moved left
+                detailsBtn.Location  = new Point(row.Width - 290, 22);     // Moved left
+                sendBtn.Location     = new Point(row.Width - 192, 22);     // Adjusted for wider button
+                revokeBtn.Location   = new Point(row.Width - 92, 22);     // Adjusted for wider button
             };
 
             // trigger initial layout
             int rowW = formsListPanel.Width - 64;
-            dateLabel.Location   = new Point(rowW - 490, 27);
-            ratingLabel.Location = new Point(rowW - 320, 27);
-            detailsBtn.Location  = new Point(rowW - 230, 22);
-            sendBtn.Location     = new Point(rowW - 148, 22);
-            revokeBtn.Location   = new Point(rowW - 74, 22);
+            dateLabel.Location   = new Point(rowW - 550, 27);     // Moved left
+            ratingLabel.Location = new Point(rowW - 380, 27);     // Moved left
+            detailsBtn.Location  = new Point(rowW - 290, 22);     // Moved left
+            sendBtn.Location     = new Point(rowW - 192, 22);     // Adjusted for wider button
+            revokeBtn.Location   = new Point(rowW - 92, 22);     // Adjusted for wider button
 
             return row;
         }
@@ -2241,14 +2343,12 @@ namespace EvaluaTeach
 
             if (question.Type == QuestionType.Rating && int.TryParse(answer, out var rating))
             {
-                var stars = new string('★', rating) + new string('☆', (question.MaxRating ?? 5) - rating);
-                return $"{stars} ({rating}/{question.MaxRating ?? 5})";
+                return $"{rating} / {question.MaxRating ?? 5}";
             }
 
             if (question.Type == QuestionType.YesNo)
             {
-                var color = answer.ToLower() == "yes" ? "✓" : "✗";
-                return $"{color} {answer}";
+                return answer;
             }
 
             if (answer.Length > 30)
@@ -2358,7 +2458,7 @@ namespace EvaluaTeach
                 {
                     var avgBadge = new Label
                     {
-                        Text = $"★ {catAvg.Value:0.0} avg",
+                        Text = $"{catAvg.Value:0.0} avg",
                         Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
                         ForeColor = Color.White,
                         BackColor = Color.FromArgb(38, 166, 91),
@@ -2544,13 +2644,12 @@ namespace EvaluaTeach
 
             if (question.Type == QuestionType.Rating && int.TryParse(answer, out var rating))
             {
-                var stars = new string('★', rating) + new string('☆', (question.MaxRating ?? 5) - rating);
-                return $"{stars} ({rating} out of {question.MaxRating ?? 5})";
+                return $"{rating} out of {question.MaxRating ?? 5}";
             }
 
             if (question.Type == QuestionType.YesNo)
             {
-                return answer.ToLower() == "yes" ? "✓ Yes" : "✗ No";
+                return answer;
             }
 
             return answer;
@@ -2579,18 +2678,32 @@ namespace EvaluaTeach
                 lines.Add($"   Answer: {(!string.IsNullOrWhiteSpace(answer) ? answer : "(no answer)")}");
             }
 
+            // Include additional comment if available
+            var comment = FormDataStore.GetCommentForSubmission(response.Id);
+            if (comment != null && comment.Status == CommentStatus.Approved)
+            {
+                lines.Add("");
+                lines.Add("------------------------------");
+                lines.Add("ADDITIONAL COMMENT:");
+                lines.Add($"   {comment.CommentText}");
+            }
+
             return string.Join(Environment.NewLine, lines);
         }
 
         private void SendReportToTeacher(EvaluationForm form, FormResponse response, string reportBody)
         {
-            if (response.TeacherId <= 0)
+            // Get the effective teacher ID: from response or from form's target
+            int effectiveTeacherId = response.TeacherId > 0 ? response.TeacherId : (form.TargetTeacherId ?? 0);
+            string effectiveTeacherName = response.TeacherId > 0 ? response.TeacherName : form.TargetTeacher;
+
+            if (effectiveTeacherId <= 0)
             {
                 MessageBox.Show("This response has no linked teacher. Assign a teacher to the evaluation form first.", "Cannot Send", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (TeacherStore.HasReportBeenSent(response.TeacherId, form.Id, response.Id))
+            if (TeacherStore.HasReportBeenSent(effectiveTeacherId, form.Id, response.Id))
             {
                 MessageBox.Show("This report has already been sent to the teacher.", "Already Sent", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
@@ -2602,6 +2715,17 @@ namespace EvaluaTeach
                 MessageBox.Show(
                     "This submission has a comment that is still under review.\nResolve it in Comment Moderation before sending the report.",
                     "Pending Comment",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Check for pending text answer comments (flagged text questions)
+            if (FormDataStore.HasPendingTextAnswerComments(response.Id))
+            {
+                MessageBox.Show(
+                    "This submission has text answer(s) that are still under review.\nResolve them in Comment Moderation before sending the report.",
+                    "Pending Text Answer Review",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
@@ -2620,9 +2744,9 @@ namespace EvaluaTeach
 
             try
             {
-                TeacherStore.SaveReport(response.TeacherId, form.Id, response.AssignmentId, avgScore, 1, reportBody);
+                TeacherStore.SaveReport(effectiveTeacherId, form.Id, response.AssignmentId, avgScore, 1, reportBody);
                 MessageBox.Show(
-                    $"Report sent to {response.TeacherName}.\n\nStudent: {response.StudentName}\nForm: {form.Title}",
+                    $"Report sent to {effectiveTeacherName}.\n\nStudent: {response.StudentName}\nForm: {form.Title}",
                     "Report Sent",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -2732,7 +2856,7 @@ namespace EvaluaTeach
             };
 
             bool isSevere = effectiveLevel == CommentLevel.Severe;
-            int cardHeight = isSevere ? 320 : 270;
+            int cardHeight = isSevere ? 350 : 300;
 
             var card = new Panel
             {
@@ -2777,18 +2901,44 @@ namespace EvaluaTeach
             };
             card.Controls.Add(formBadge);
 
-            // Date submitted
+            // Date submitted (declare first)
+            int dateLabelY = y + 52;
             var dateLabel = new Label
             {
                 Text = comment.SubmittedAt.ToString("MMM dd, yyyy HH:mm"),
                 Font = new Font("Inter", 9F),
                 ForeColor = Color.FromArgb(148, 163, 184),
                 AutoSize = true,
-                Location = new Point(x, y + 52)
+                Location = new Point(x, dateLabelY)
             };
+
             card.Controls.Add(dateLabel);
 
-            // System level badge
+            // Track vertical offset for dynamic positioning
+            int verticalOffset = 0;
+
+            // Text answer indicator - shows which question this answer belongs to
+            if (!string.IsNullOrEmpty(comment.QuestionText))
+            {
+                // Place question badge BELOW the date to avoid overlap
+                var questionBadge = new Label
+                {
+                    Text = $"Q: {comment.QuestionText}",
+                    Font = new Font("Inter", 8F, FontStyle.Italic),
+                    ForeColor = Color.FromArgb(59, 130, 246),
+                    BackColor = Color.FromArgb(239, 246, 255),
+                    AutoSize = true,
+                    MaximumSize = new Size(card.Width - 200, 0), // Leave room for right-side badges
+                    Padding = new Padding(6, 2, 6, 2),
+                    Location = new Point(x, y + 76) // Below date (y + 52 + 24)
+                };
+                card.Controls.Add(questionBadge);
+                
+                // Track offset for elements below
+                verticalOffset = 24; // Extra space for question badge
+            }
+
+            // System level badge - positioned from right edge
             var sysLevelBadge = new Label
             {
                 Text = $"System: {comment.SystemLevel}",
@@ -2797,12 +2947,12 @@ namespace EvaluaTeach
                 BackColor = levelBg,
                 AutoSize = true,
                 Padding = new Padding(8, 3, 8, 3),
-                Location = new Point(card.Width - 280, y)
+                Location = new Point(card.Width - 200, y) // Position from right (more to left)
             };
             sysLevelBadge.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             card.Controls.Add(sysLevelBadge);
 
-            // Status badge
+            // Status badge - positioned to the left of system badge
             Color statusBg = comment.Status switch
             {
                 CommentStatus.Approved => Color.FromArgb(220, 252, 231),
@@ -2823,12 +2973,13 @@ namespace EvaluaTeach
                 BackColor = statusBg,
                 AutoSize = true,
                 Padding = new Padding(8, 3, 8, 3),
-                Location = new Point(card.Width - 170, y)
+                Location = new Point(card.Width - 310, y) // Position from right (more to left)
             };
             statusBadge.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             card.Controls.Add(statusBadge);
 
-            // Comment text box
+            // Comment text box - position adjusted for question badge if present
+            int commentBoxY = y + 82 + verticalOffset;
             var commentBox = new TextBox
             {
                 Text = comment.CommentText,
@@ -2838,13 +2989,13 @@ namespace EvaluaTeach
                 Font = new Font("Inter", 11F),
                 BackColor = Color.FromArgb(248, 250, 252),
                 BorderStyle = BorderStyle.FixedSingle,
-                Location = new Point(x, y + 82),
+                Location = new Point(x, commentBoxY),
                 Size = new Size(card.Width - x * 2 - 10, 70),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             card.Controls.Add(commentBox);
 
-            // Classifier description
+            // Classifier description - position adjusted for question badge
             var classifierDesc = new Label
             {
                 Text = CommentClassifier.GetLevelDescription(comment.SystemLevel),
@@ -2852,19 +3003,20 @@ namespace EvaluaTeach
                 ForeColor = levelFg,
                 AutoSize = false,
                 Size = new Size(card.Width - x * 2 - 10, 20),
-                Location = new Point(x, y + 158),
+                Location = new Point(x, commentBoxY + 76),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             card.Controls.Add(classifierDesc);
 
-            // Severe: student contact info banner
+            // Severe: student contact info banner - position adjusted
+            int contactBannerY = commentBoxY + 102;
             if (isSevere)
             {
                 var contactBanner = new Panel
                 {
                     BackColor = Color.FromArgb(254, 226, 226),
                     Size = new Size(card.Width - x * 2 - 10, 44),
-                    Location = new Point(x, y + 184),
+                    Location = new Point(x, contactBannerY),
                     Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                 };
                 var contactLabel = new Label
@@ -2882,7 +3034,8 @@ namespace EvaluaTeach
                 card.Controls.Add(contactBanner);
             }
 
-            int btnY = isSevere ? y + 240 : y + 190;
+            // Button row Y position - adjusted for question badge and dynamic layout
+            int btnY = isSevere ? contactBannerY + 56 : commentBoxY + 96;
 
             // Admin level override
             var levelLabel = new Label
@@ -2899,7 +3052,7 @@ namespace EvaluaTeach
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = new Font("Inter", 10F),
-                Location = new Point(x + 72, btnY),
+                Location = new Point(x + 100, btnY),
                 Size = new Size(110, 26)
             };
             levelDropdown.Items.AddRange(new[] { "Normal", "Mild", "Moderate", "Severe" });
@@ -2919,11 +3072,14 @@ namespace EvaluaTeach
                 Location = new Point(card.Width - 204, btnY),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
+            // Fix variable capture issue - create local copies
+            var commentId = comment.Id;
+            var systemLevel = comment.SystemLevel;
             approveBtn.Click += (_, _) =>
             {
-                var selectedLevel = levelDropdown.SelectedItem?.ToString() ?? comment.SystemLevel.ToString();
-                var adminLevel = Enum.TryParse<CommentLevel>(selectedLevel, out var lv) ? lv : comment.SystemLevel;
-                FormDataStore.UpdateCommentStatus(comment.Id, CommentStatus.Approved, adminLevel, SessionStore.UserName);
+                var selectedLevel = levelDropdown.SelectedItem?.ToString() ?? systemLevel.ToString();
+                var adminLevel = Enum.TryParse<CommentLevel>(selectedLevel, out var lv) ? lv : systemLevel;
+                FormDataStore.UpdateCommentStatus(commentId, CommentStatus.Approved, adminLevel, SessionStore.UserName);
                 LoadCommentsView(showAll);
                 UpdateStats();
             };
@@ -2944,20 +3100,25 @@ namespace EvaluaTeach
             };
             rejectBtn.Click += (_, _) =>
             {
-                var selectedLevel = levelDropdown.SelectedItem?.ToString() ?? comment.SystemLevel.ToString();
-                var adminLevel = Enum.TryParse<CommentLevel>(selectedLevel, out var lv) ? lv : comment.SystemLevel;
-                FormDataStore.UpdateCommentStatus(comment.Id, CommentStatus.Rejected, adminLevel, SessionStore.UserName);
+                var selectedLevel = levelDropdown.SelectedItem?.ToString() ?? systemLevel.ToString();
+                var adminLevel = Enum.TryParse<CommentLevel>(selectedLevel, out var lv) ? lv : systemLevel;
+                FormDataStore.UpdateCommentStatus(commentId, CommentStatus.Rejected, adminLevel, SessionStore.UserName);
                 LoadCommentsView(showAll);
                 UpdateStats();
             };
             card.Controls.Add(rejectBtn);
 
-            // Disable approve/reject if already reviewed
+            // If already reviewed, hide approve/reject buttons and show reviewed info
             if (comment.Status != CommentStatus.Pending)
             {
-                approveBtn.Enabled = false;
-                rejectBtn.Enabled = false;
+                // Remove the buttons instead of just disabling
+                card.Controls.Remove(approveBtn);
+                card.Controls.Remove(rejectBtn);
+                
+                // Disable the dropdown
                 levelDropdown.Enabled = false;
+                
+                // Show reviewed info label in original position (below button area)
                 var reviewedLabel = new Label
                 {
                     Text = $"Reviewed by {(string.IsNullOrEmpty(comment.ReviewedBy) ? "admin" : comment.ReviewedBy)} on {comment.ReviewedAt:MMM dd, yyyy}",
@@ -2976,13 +3137,17 @@ namespace EvaluaTeach
                 classifierDesc.Size = new Size(card.Width - x * 2 - 10, 20);
                 if (isSevere)
                 {
-                    var banner = card.Controls.OfType<Panel>().FirstOrDefault(p => p.BackColor == Color.FromArgb(254, 226, 226) && p.Location.Y == y + 184);
+                    var banner = card.Controls.OfType<Panel>().FirstOrDefault(p => p.BackColor == Color.FromArgb(254, 226, 226) && p.Location.Y == contactBannerY);
                     if (banner != null) banner.Size = new Size(card.Width - x * 2 - 10, 44);
                 }
-                sysLevelBadge.Location = new Point(card.Width - 280, y);
-                statusBadge.Location = new Point(card.Width - 170, y);
-                approveBtn.Location = new Point(card.Width - 204, btnY);
-                rejectBtn.Location = new Point(card.Width - 104, btnY);
+                sysLevelBadge.Location = new Point(card.Width - 200, y);
+                statusBadge.Location = new Point(card.Width - 310, y);
+                // Only update button positions if they exist (pending comments)
+                if (comment.Status == CommentStatus.Pending)
+                {
+                    approveBtn.Location = new Point(card.Width - 204, btnY);
+                    rejectBtn.Location = new Point(card.Width - 104, btnY);
+                }
             };
 
             return card;
@@ -3187,8 +3352,8 @@ namespace EvaluaTeach
 
             // Subjects/Assignments preview
             string assignmentsText = teacher.Assignments.Count > 0
-                ? $"📚 {teacher.Assignments.Count} subject group(s)"
-                : "⚠️ No subjects - students won't see this teacher";
+                ? $"{teacher.Assignments.Count} subject group(s)"
+                : "No subjects - students won't see this teacher";
             var assignmentsLabel = new Label
             {
                 Text = assignmentsText,
@@ -3216,7 +3381,7 @@ namespace EvaluaTeach
                     string syShort = entry.SchoolYear.Length >= 7
                         ? entry.SchoolYear.Substring(2, 2) + "-" + entry.SchoolYear.Substring(7, 2)
                         : entry.SchoolYear;
-                    string chipText = $"{entry.Semester} {syShort}  ★ {entry.AvgScore:0.0}";
+                    string chipText = $"{entry.Semester} {syShort}  Score: {entry.AvgScore:0.0}";
 
                     var chip = new Label
                     {
@@ -3247,14 +3412,14 @@ namespace EvaluaTeach
             // ── Buttons ───────────────────────────────────────────────
             var perfBtn = new Button
             {
-                Text = "📊 Performance",
+                Text = "Performance",
                 BackColor = Color.FromArgb(243, 244, 246),
                 ForeColor = Color.FromArgb(55, 65, 81),
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                Size = new Size(118, 32),
-                Location = new Point(card.Width - 340, 70),
+                Size = new Size(130, 32),
+                Location = new Point(card.Width - 460, 70),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Cursor = Cursors.Hand
             };
@@ -3264,14 +3429,14 @@ namespace EvaluaTeach
 
             var manageBtn = new Button
             {
-                Text = "📋 Subjects",
+                Text = "Subjects",
                 BackColor = Color.FromArgb(224, 242, 254),
                 ForeColor = Color.FromArgb(3, 105, 161),
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
                 Size = new Size(100, 32),
-                Location = new Point(card.Width - 215, 70),
+                Location = new Point(card.Width - 320, 70),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Cursor = Cursors.Hand
             };
@@ -3281,14 +3446,14 @@ namespace EvaluaTeach
 
             var editBtn = new Button
             {
-                Text = "✏️ Edit",
+                Text = "Edit",
                 BackColor = Color.FromArgb(243, 244, 246),
                 ForeColor = Color.FromArgb(55, 65, 81),
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
                 Size = new Size(72, 32),
-                Location = new Point(card.Width - 108, 70),
+                Location = new Point(card.Width - 210, 70),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Cursor = Cursors.Hand
             };
@@ -3298,14 +3463,14 @@ namespace EvaluaTeach
 
             var deleteBtn = new Button
             {
-                Text = "🗑️",
+                Text = "Delete",
                 BackColor = Color.FromArgb(254, 226, 226),
                 ForeColor = Color.FromArgb(185, 28, 28),
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
                 Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                Size = new Size(32, 32),
-                Location = new Point(card.Width - 48, 70),
+                Size = new Size(80, 32),
+                Location = new Point(card.Width - 130, 70),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Cursor = Cursors.Hand
             };
@@ -3329,10 +3494,10 @@ namespace EvaluaTeach
             {
                 accentBar.Size = new Size(4, card.Height);
                 ratingsStrip.Size = new Size(card.Width - 20, 32);
-                perfBtn.Location = new Point(card.Width - 340, 70);
-                manageBtn.Location = new Point(card.Width - 215, 70);
-                editBtn.Location = new Point(card.Width - 108, 70);
-                deleteBtn.Location = new Point(card.Width - 48, 70);
+                perfBtn.Location = new Point(card.Width - 460, 70);
+                manageBtn.Location = new Point(card.Width - 320, 70);
+                editBtn.Location = new Point(card.Width - 210, 70);
+                deleteBtn.Location = new Point(card.Width - 130, 70);
             };
 
             return card;
@@ -3472,7 +3637,7 @@ namespace EvaluaTeach
 
                     var avgLabel = new Label
                     {
-                        Text = $"★ {entry.AvgScore:0.00} / {maxRatingSubject:0}",
+                        Text = $"{entry.AvgScore:0.00} / {maxRatingSubject:0}",
                         Font = new Font("Inter SemiBold", 11F, FontStyle.Bold),
                         ForeColor = Color.FromArgb(234, 179, 8),
                         AutoSize = true,
@@ -3587,7 +3752,7 @@ namespace EvaluaTeach
                 // Numeric avg — anchored right
                 var avgLabel = new Label
                 {
-                    Text = $"★ {entry.AvgScore:0.00} / {maxRating:0}",
+                    Text = $"{entry.AvgScore:0.00} / {maxRating:0}",
                     Font = new Font("Inter SemiBold", 11F, FontStyle.Bold),
                     ForeColor = Color.FromArgb(234, 179, 8),
                     AutoSize = true,
@@ -3938,7 +4103,7 @@ namespace EvaluaTeach
                 // Subjects
                 var subjectsLabel = new Label
                 {
-                    Text = $"📚 Subjects: {assignment.SubjectsDisplay}",
+                    Text = $"Subjects: {assignment.SubjectsDisplay}",
                     Font = new Font("Inter", 9F),
                     ForeColor = Color.FromArgb(71, 85, 105),
                     AutoSize = true,
@@ -3950,14 +4115,14 @@ namespace EvaluaTeach
                 // Edit button
                 var editBtn = new Button
                 {
-                    Text = "✏️",
+                    Text = "Edit",
                     BackColor = Color.FromArgb(224, 242, 254),
                     ForeColor = Color.FromArgb(3, 105, 161),
                     FlatStyle = FlatStyle.Flat,
                     FlatAppearance = { BorderSize = 0 },
                     Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                    Size = new Size(32, 28),
-                    Location = new Point(380, 10),
+                    Size = new Size(50, 28),
+                    Location = new Point(340, 10),
                     Cursor = Cursors.Hand
                 };
                 editBtn.Click += (_, _) => ShowEditSubjectDialog(teacher, assignment, onDelete);
@@ -3966,14 +4131,14 @@ namespace EvaluaTeach
                 // Delete button
                 var deleteBtn = new Button
                 {
-                    Text = "🗑️",
+                    Text = "Delete",
                     BackColor = Color.FromArgb(254, 226, 226),
                     ForeColor = Color.FromArgb(185, 28, 28),
                     FlatStyle = FlatStyle.Flat,
                     FlatAppearance = { BorderSize = 0 },
                     Font = new Font("Inter SemiBold", 9F, FontStyle.Bold),
-                    Size = new Size(32, 28),
-                    Location = new Point(420, 10),
+                    Size = new Size(60, 28),
+                    Location = new Point(400, 10),
                     Cursor = Cursors.Hand
                 };
                 deleteBtn.Click += (_, _) =>
@@ -3997,7 +4162,7 @@ namespace EvaluaTeach
             // Add New Subject Group button
             var addSubjectBtn = new Button
             {
-                Text = "+ Add Subject Group",
+                Text = "Add Subject Group",
                 BackColor = Color.FromArgb(38, 166, 91),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,

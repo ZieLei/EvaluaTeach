@@ -373,16 +373,22 @@ namespace EvaluaTeach
             return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
         }
 
-        public static HashSet<int> GetSentSubmissionIds(int teacherId, int evaluationId)
+        public static HashSet<int> GetSentSubmissionIds(int teacherId, int evaluationId, int? assignmentId = null)
         {
             var ids = new HashSet<int>();
             using var conn = Database.GetConnection();
             conn.Open();
-            var cmd = new MySqlCommand(@"
-                SELECT ReportData FROM report
-                WHERE TeacherID = @teacherId AND EvaluationID = @evaluationId", conn);
+            
+            string sql = assignmentId.HasValue
+                ? "SELECT ReportData FROM report WHERE TeacherID = @teacherId AND EvaluationID = @evaluationId AND AssignmentID = @assignmentId"
+                : "SELECT ReportData FROM report WHERE TeacherID = @teacherId AND EvaluationID = @evaluationId AND AssignmentID IS NULL";
+            
+            var cmd = new MySqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("@teacherId", teacherId);
             cmd.Parameters.AddWithValue("@evaluationId", evaluationId);
+            if (assignmentId.HasValue)
+                cmd.Parameters.AddWithValue("@assignmentId", assignmentId.Value);
+            
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -438,13 +444,15 @@ namespace EvaluaTeach
             conn.Open();
 
             var cmd = new MySqlCommand(@"
-                SELECT r.ReportID, r.TeacherID, r.EvaluationID, r.SubmissionDate,
+                SELECT r.ReportID, r.TeacherID, r.EvaluationID, r.AssignmentID, r.SubmissionDate,
                        r.AverageScore, r.ResponseCount, r.ReportData,
                        COALESCE(ef.Title, '') AS FormTitle,
-                       c.Content AS CommentText, c.SystemLevel AS CommentLevel
+                       COALESCE(ef.Semester, '') AS Semester,
+                       COALESCE(ef.SchoolYear, '') AS SchoolYear,
+                       ta.Subjects, ta.Course, ta.YearLevel, ta.Section
                 FROM report r
                 LEFT JOIN EvaluationForm ef ON ef.EvaluationID = r.EvaluationID
-                LEFT JOIN comment c ON c.SubmissionID = r.ReportID AND c.Status = 'Approved'
+                LEFT JOIN teacher_assignment ta ON ta.AssignmentID = r.AssignmentID
                 WHERE r.TeacherID = @teacherId
                 ORDER BY r.SubmissionDate DESC", conn);
 
@@ -453,7 +461,12 @@ namespace EvaluaTeach
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                var commentLevelStr = reader.IsDBNull(reader.GetOrdinal("CommentLevel")) ? null : reader.GetString("CommentLevel");
+                var assignmentId = reader.IsDBNull(reader.GetOrdinal("AssignmentID")) ? (int?)null : reader.GetInt32("AssignmentID");
+                var subjects = reader.IsDBNull(reader.GetOrdinal("Subjects")) ? "" : reader.GetString("Subjects");
+                var course = reader.IsDBNull(reader.GetOrdinal("Course")) ? "" : reader.GetString("Course");
+                var yearLevel = reader.IsDBNull(reader.GetOrdinal("YearLevel")) ? "" : reader.GetString("YearLevel");
+                var section = reader.IsDBNull(reader.GetOrdinal("Section")) ? "" : reader.GetString("Section");
+                
                 reports.Add(new TeacherReport
                 {
                     ReportID = reader.GetInt32("ReportID"),
@@ -464,8 +477,13 @@ namespace EvaluaTeach
                     AverageScore = reader.IsDBNull(reader.GetOrdinal("AverageScore")) ? 0 : reader.GetDecimal("AverageScore"),
                     ResponseCount = reader.IsDBNull(reader.GetOrdinal("ResponseCount")) ? 0 : reader.GetInt32("ResponseCount"),
                     ReportData = reader.IsDBNull(reader.GetOrdinal("ReportData")) ? "" : reader.GetString("ReportData"),
-                    CommentText = reader.IsDBNull(reader.GetOrdinal("CommentText")) ? null : reader.GetString("CommentText"),
-                    CommentLevel = ParseCommentLevel(commentLevelStr)
+                    Semester = reader.IsDBNull(reader.GetOrdinal("Semester")) ? "" : reader.GetString("Semester"),
+                    SchoolYear = reader.IsDBNull(reader.GetOrdinal("SchoolYear")) ? "" : reader.GetString("SchoolYear"),
+                    AssignmentID = assignmentId,
+                    SubjectName = subjects,
+                    Course = course,
+                    YearLevel = yearLevel,
+                    Section = section
                 });
             }
 

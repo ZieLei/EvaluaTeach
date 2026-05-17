@@ -34,17 +34,10 @@ namespace EvaluaTeach
 
             buttonLogin.FlatStyle = FlatStyle.Flat;
             buttonLogin.FlatAppearance.BorderSize = 0;
-            buttonLogin.BackColor = Color.White;
-            buttonLogin.ForeColor = Color.FromArgb(15, 23, 42);
+            buttonLogin.BackColor = Color.FromArgb(22, 163, 74);
+            buttonLogin.ForeColor = Color.White;
             buttonLogin.Font = new Font("Inter SemiBold", 9.5F, FontStyle.Bold);
             buttonLogin.Click += (_, _) => Program.NavigateTo(new Login());
-
-            buttonSignup.FlatStyle = FlatStyle.Flat;
-            buttonSignup.FlatAppearance.BorderSize = 0;
-            buttonSignup.BackColor = Color.FromArgb(22, 163, 74);
-            buttonSignup.ForeColor = Color.White;
-            buttonSignup.Font = new Font("Inter SemiBold", 9.5F, FontStyle.Bold);
-            buttonSignup.Click += (_, _) => Program.NavigateTo(new Signup());
 
             labelBadge.BackColor = Color.FromArgb(30, 41, 59);
             labelBadge.ForeColor = Color.FromArgb(134, 239, 172);
@@ -60,7 +53,7 @@ namespace EvaluaTeach
             labelSubheadline.MaximumSize = new Size(620, 0);
 
             StylePrimaryButton(buttonGetStarted, Color.FromArgb(22, 163, 74), Color.White);
-            buttonGetStarted.Click += (_, _) => Program.NavigateTo(new Signup());
+            buttonGetStarted.Click += (_, _) => Program.NavigateTo(new Login());
 
             StyleStatsPanel();
             StyleFeatureCard(cardPanel1, labelCard1Title, labelCard1Body);
@@ -112,8 +105,7 @@ namespace EvaluaTeach
             topBarPanel.Padding = new Padding(0, 6, 0, 6);
             heroPanel.Padding = new Padding(36);
 
-            buttonLogin.Location = new Point(topBarPanel.Width - buttonLogin.Width, 6);
-            buttonSignup.Location = new Point(buttonLogin.Left - buttonSignup.Width - 12, 6);
+            buttonLogin.Location = new Point(topBarPanel.Width - buttonLogin.Width - 12, 6);
 
             int contentLeft = 24;
             int contentTop = 24;
